@@ -115,7 +115,7 @@ def pin(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame)
     rec_id = f"pin-{slug(session)}-lap{int(lap)}"[:120]
     rec = _record("pinned", rec_id, info, session, lap, lap_time, grid)
     _write(_dir(info) / f"{rec_id}.json", rec)
-    return {k: rec[k] for k in _META}
+    return {k: rec[k] for k in _META if k in rec}
 
 
 def delete(info: dict, rec_id: str) -> bool:

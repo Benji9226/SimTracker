@@ -40,18 +40,18 @@ a track-limits penalty, so such a lap is marked *invalid*: it is never your best
 best, and left out of the comparisons and the practise numbers. Lap times are the game's own, so they match
 what you saw in the game. Everything is local: nothing is sent anywhere.
 
-**Comparing laps that don't count.** Tick *Also show laps that don't count* above the lap list to see out laps,
-pit laps and track-limits laps. You can still click one and compare it with any other lap (a corner may have been
-great in a lap that was thrown out). They only never count as a best lap, can't be saved, and are left out of
-*What to practise*. Only a lap that is not a full lap (the one you are still driving) cannot be compared.
+**Laps that don't count.** Out laps, pit laps and laps with track limits are always in the lap list, in grey, and
+you can still compare them with any other lap (a corner may have been great in a lap that was thrown out). They only
+never count as a best lap, can't be saved, and are left out of *What to practise*. A lap that is not a full lap
+(the one you are still driving) is not listed. Tick *Hide laps that don't count* above the buttons if you want only your clean laps.
 
-**Comparing with a friend.** On the *Compare laps* page, pick one of your laps and press **Export lap**: you are
+**Comparing with a friend.** On the *Compare laps* page, pick one of your laps and press **Export**: you are
 asked for your name, and a small `.simlap` file is downloaded (lap time, car, track and the lap's speed, throttle,
 brake, steering and gear along the track, and nothing else: no file paths, nothing about your computer). Send it
-to your friend any way you like. They press **Import a friend's lap…** and pick the file, and they are
+to your friend any way you like. They press **Import…** and pick the file, and they are
 immediately comparing their lap against yours. Friends' laps are listed under *Friends' laps* in
-*Compare it against* (and in *My saved laps*, where you can delete them). Your own saved laps can be exported
-from *My saved laps* too. A friend's lap belongs to the track, so it works whatever car either of you drove, but
+the lap list (and in *Saved laps and friends' laps*, where you can delete them). Your own saved laps can be exported
+from *Saved laps and friends' laps* too. A friend's lap belongs to the track, so it works whatever car either of you drove, but
 it only appears when you open a session on the same track. It is never counted as one of your own tries in
 *What to practise*. Lap files from other people are checked before they are kept.
 
@@ -69,8 +69,8 @@ A session the game still has open can't be deleted and is reported.
 
 Your **personal best** for each track and car is saved automatically, and replaced whenever you set a faster
 clean lap (the one it replaces is kept in a `history` folder, so nothing is lost). On **Compare laps** you can
-pick it under *Compare it against*, so tomorrow's laps can be measured against today's best. To keep a lap
-that isn't your best, click **Save this lap**; it stays until you delete it (*My saved laps*).
+pick it in the lap list, so tomorrow's laps can be measured against today's best. To keep a lap
+that isn't your best, click **Save lap**; it stays until you delete it (*Saved laps and friends' laps*).
 
 Saved laps live in `data/saved_laps/<track>/<car>/`.
 

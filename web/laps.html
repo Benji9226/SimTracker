@@ -11,7 +11,7 @@
   @media (max-width: 900px) { main { grid-template-columns: minmax(0,1fr); } }
   aside { display:grid; gap:16px; min-width:0; }
   .scroll { overflow-y:auto; scrollbar-width:thin; }
-  .scroll.laps { max-height:230px; }
+  .scroll.laps { max-height:330px; }
   .scroll.turns { max-height:360px; }
   .scroll thead th { position:sticky; top:0; background:var(--panel); z-index:1; box-shadow:0 1px 0 var(--line); }
   tr.pick { cursor:pointer; }
@@ -22,6 +22,15 @@
   td.num, th.num { text-align:right; }
   .row { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
   .row select { max-width:100%; }
+  .rc { width:1%; text-align:center !important; white-space:nowrap; font-size:11px; }
+  td.rc input { margin:0; cursor:pointer; vertical-align:middle; }
+  input.r-ref { accent-color:#4da3ff; } input.r-chk { accent-color:#ff6b6b; }
+  tr.sec td { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding-top:10px; border-bottom:0; cursor:default; }
+  tr.sec:hover td { background:none; }
+  .actions { display:flex; gap:6px; align-items:center; margin-top:10px; }
+  .actions .sep { flex:1; }
+  .btn.primary { border-color:var(--a); }
+  #saveMsg:empty { display:none; }
   .small { font-size:12px; color:var(--dim); display:block; margin-top:8px; }
   .pos { color:var(--b); } .neg { color:var(--good); }
   #summary p { margin:0; font-size:16px; line-height:1.4; }
@@ -57,14 +66,19 @@
       <div id="mapBox"></div>
     </div>
     <div class="card">
-      <h2>1 · Click a lap to check</h2>
-      <div class="scroll laps"><table id="laps"><thead><tr><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
-      <label class="small"><input type="checkbox" id="showAll"> Also show laps that don't count (out and pit laps, and laps with track limits). You can still compare them; they just never count as a best lap or in "What to practise".</label>
-      <div class="row"><label for="target">Compare it against</label><select id="target"></select></div>
-      <div class="row"><button class="btn" id="saveBtn">Save this lap</button><button class="btn" id="exportBtn" title="Make a small file of this lap to send to a friend">Export lap</button><button class="btn" id="importBtn" title="Open a lap file a friend sent you">Import a friend's lap…</button><input type="file" id="importFile" accept=".simlap,.json,application/json" hidden></div>
-      <div class="small" id="saveMsg" style="margin:4px 0 0"></div>
+      <h2>1 · Pick the laps to compare</h2>
+      <div class="scroll laps"><table id="laps"><thead><tr><th class="rc" title="Reference: the lap you compare against (blue line)" style="color:#4da3ff">Ref</th><th class="rc" title="The lap you are checking (red line)" style="color:#ff6b6b">Check</th><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
+      <label class="small" title="Out laps, pit laps and laps with track limits. They can be compared, but never count as a best lap or in 'What to practise'."><input type="checkbox" id="hideBad"> Hide laps that don't count</label>
+      <div class="actions">
+        <button class="btn small-btn primary" id="saveBtn">Save lap</button>
+        <span class="sep"></span>
+        <button class="btn small-btn" id="exportBtn" title="Make a small file of this lap to send to a friend">Export</button>
+        <button class="btn small-btn" id="importBtn" title="Open a lap file a friend sent you">Import…</button>
+        <input type="file" id="importFile" accept=".simlap,.json,application/json" hidden>
+      </div>
+      <div class="small" id="saveMsg" role="status"></div>
       <details class="help" style="margin-top:10px">
-        <summary>My saved laps</summary>
+        <summary>Saved laps and friends' laps</summary>
         <p class="small" style="margin:6px 0">Your <b>personal best</b> for this track and car is saved automatically, and replaced whenever you set a faster clean lap. Laps you save yourself are kept until you delete them. You can compare against any of them on any day.</p>
         <div id="savedList"></div>
       </details>
@@ -85,7 +99,7 @@
     <details class="help">
       <summary>How to read this page</summary>
       <ul>
-        <li><b>Clean lap</b>: a full lap that didn't go through the pit lane and that the game counted. Only clean laps can be saved, or count as a best lap. Other full laps (out laps, track limits) can still be compared: tick the box above the lap list.</li>
+        <li><b>Clean lap</b>: a full lap that didn't go through the pit lane and that the game counted. Only clean laps can be saved, or count as a best lap. Other full laps (out laps, pit laps, track limits) are listed in grey and can still be compared.</li>
         <li><b>Time gap</b> (top chart): when the line goes up, the lap you're checking is falling behind the other lap. When it goes down, it's catching up.</li>
         <li><b>Brake</b> and <b>throttle</b>: if one lap brakes earlier, or gets back on the throttle later, you'll see it here.</li>
         <li><b>T1, T2 ...</b> along the top are the turns, so you can see which part of the track you're looking at.</li>
@@ -152,8 +166,8 @@ function bindHover() {
 
 function resetView() {                       // nothing from the previous session may stay on screen
   S.laps = []; S.saved = []; S.target = null; S.check = null; S.corners = [];
-  $("laps").querySelector("tbody").innerHTML = ""; $("target").innerHTML = ""; $("savedList").innerHTML = "";
-  $("saveBtn").disabled = true; $("saveBtn").textContent = "Save this lap"; $("saveMsg").textContent = "";
+  $("laps").querySelector("tbody").innerHTML = ""; $("savedList").innerHTML = "";
+  $("saveBtn").disabled = true; $("saveBtn").textContent = "Save lap"; $("saveMsg").textContent = "";
   $("pbnote").style.display = "none";
   $("mapCard").hidden = true;
   showMsg("Loading…");
@@ -204,29 +218,37 @@ async function loadSession(file, keep) {
 function renderLaps() {
   const clean = cleanLaps();
   const best = clean.length ? Math.min(...clean.map(l => l.time)) : null;
-  const rows = S.laps.filter(l => l.complete || $("showAll").checked || l.lap === S.check).sort((a, b) => b.lap - a.lap);
-  $("laps").querySelector("tbody").innerHTML = rows.map(l => {
+  const hide = $("hideBad").checked;
+  const rows = S.laps.filter(l => l.comparable && (!hide || l.complete || l.lap === S.check || l.lap === S.target)).sort((a, b) => b.lap - a.lap);
+  const radio = (kind, value, on) => `<td class="rc"><input type="radio" class="r-${kind}" name="${kind}" value="${value}" ${on ? "checked" : ""} aria-label="${kind === "ref" ? "Reference" : "Check"}"></td>`;
+  let html = rows.map(l => {
     const gap = l.complete && best != null && l.time !== best ? "+" + (l.time - best).toFixed(3) : "";
     const tag = l.complete && l.time === best ? '<span class="best-tag">best</span>' : (!l.complete ? ` <span class="pill" title="${l.reason === "invalid" ? "The game did not count this lap (for example track limits)" : l.reason === "pit" ? "Pit lane visit" : "Not a full lap"}">${l.reason}</span>` : "");
-    return `<tr class="${l.comparable ? "pick" : ""} ${l.complete ? "" : "dim"} ${l.lap === S.check ? "sel" : ""}" data-lap="${l.lap}" title="${l.comparable ? "" : "Not a full lap, so it can't be compared"}">
+    const can = l.comparable;
+    return `<tr class="${can ? "pick" : ""} ${l.complete ? "" : "dim"} ${l.lap === S.check ? "sel" : ""}" data-lap="${l.lap}" title="${can ? "" : "Not a full lap, so it can't be compared"}">
+      ${can ? radio("ref", l.lap, S.target === l.lap) + radio("chk", l.lap, S.check === l.lap) : '<td class="rc"></td><td class="rc"></td>'}
       <td>${l.lap}</td><td class="num">${lapT(l.time)}${tag}</td><td class="num">${gap}</td></tr>`;
   }).join("");
-  document.querySelectorAll("#laps tr.pick").forEach(tr => tr.onclick = () => { S.check = +tr.dataset.lap; S.manual = true; renderLaps(); compare(); });
-
-  const sess = [...clean].sort((a, b) => a.time - b.time).map(l =>
-    `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)}${l.time === best ? " (best this session)" : ""}</option>`).join("");
-  const extra = [...S.laps.filter(l => l.comparable && !l.complete)].sort((a, b) => a.lap - b.lap).map(l =>
-    `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)} (${l.reason === "invalid" ? "did not count" : l.reason === "pit" ? "pit lap" : l.reason})</option>`).join("");
-  const opt = r => `<option value="saved:${r.id}">${savedTitle(r)}</option>`;
-  const sv = S.saved.filter(r => !isFriend(r)).map(opt).join(""), fr = S.saved.filter(isFriend).map(opt).join("");
-  $("target").innerHTML = (sess ? `<optgroup label="This session">${sess}</optgroup>` : "") + (extra ? `<optgroup label="Laps that don't count">${extra}</optgroup>` : "") + (sv ? `<optgroup label="Saved laps (any day)">${sv}</optgroup>` : "") + (fr ? `<optgroup label="Friends' laps">${fr}</optgroup>` : "");
-  if (S.target != null) $("target").value = String(S.target);
+  const savedRows = (list, title) => list.length ? `<tr class="sec"><td colspan="5">${title}</td></tr>` + list.map(r =>
+    `<tr class="pick saved" data-saved="${r.id}">${radio("ref", "saved:" + r.id, S.target === "saved:" + r.id)}<td class="rc"></td>
+      <td colspan="2">${savedTitle(r)}</td><td class="num">${isFriend(r) ? "" : r.kind === "best" ? "" : ""}</td></tr>`).join("") : "";
+  html += savedRows(S.saved.filter(r => !isFriend(r)), "Saved laps (any day)") + savedRows(S.saved.filter(isFriend), "Friends' laps");
+  $("laps").querySelector("tbody").innerHTML = html;
+  const body = $("laps").querySelector("tbody");
+  body.querySelectorAll("input.r-ref").forEach(r => r.onchange = () => { S.target = r.value.startsWith("saved:") ? r.value : +r.value; S.manual = true; renderLaps(); compare(); });
+  body.querySelectorAll("input.r-chk").forEach(r => r.onchange = () => { S.check = +r.value; S.manual = true; renderLaps(); compare(); });
+  body.querySelectorAll("tr.pick[data-lap]").forEach(tr => tr.onclick = e => {      // clicking the row itself picks the lap to check
+    if (e.target.tagName === "INPUT") return;
+    S.check = +tr.dataset.lap; S.manual = true; renderLaps(); compare(); });
+  body.querySelectorAll("tr.saved").forEach(tr => tr.onclick = e => {                // ... or, for a saved lap, the reference
+    if (e.target.tagName === "INPUT") return;
+    S.target = "saved:" + tr.dataset.saved; S.manual = true; renderLaps(); compare(); });
 
   const c = lapInfo(S.check);
   $("saveBtn").disabled = !(c && c.complete);
   $("saveBtn").title = c && !c.complete ? "Only laps that count can be saved" : "";
   $("exportBtn").disabled = !(c && c.complete);
-  $("saveBtn").textContent = c && c.complete ? `Save lap ${S.check} (${lapT(c.time)})` : "Save this lap";
+  $("saveBtn").textContent = c && c.complete ? `Save lap ${S.check}` : "Save lap";
 }
 
 function renderSaved() {
@@ -257,7 +279,7 @@ function exportLap(what) {
   if (what.saved) q.set("saved", what.saved); else q.set("lap", what.lap);
   const a = document.createElement("a");
   a.href = "/api/export?" + q; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
-  say("File downloaded. Send it to your friend; they use \"Import a friend's lap\".");
+  say("File downloaded. Send it to your friend; they press Import….");
 }
 
 function say(t) { $("saveMsg").textContent = t; if (t) setTimeout(() => { if ($("saveMsg").textContent === t) $("saveMsg").textContent = ""; }, 9000); }
@@ -288,7 +310,7 @@ async function saveLap() {
   try {
     const r = await apiPost("/api/saved/save", { file: S.file, lap: S.check });
     S.saved = r.items;
-    $("saveMsg").textContent = `Saved. Find it under "Compare it against".`;
+    $("saveMsg").textContent = `Saved. You can pick it as the reference in the lap list.`;
     setTimeout(() => { $("saveMsg").textContent = ""; }, 6000);
   } catch (e) { $("saveMsg").textContent = e.message; }
   renderLaps(); renderSaved();
@@ -301,7 +323,7 @@ function showMsg(t) {
 }
 
 async function compare() {
-  if (S.target == null || S.check == null) return showMsg("You need at least one full lap to start. Drive a lap and it will show up here. (Laps that don't count are shown when you tick the box above the lap list.)");
+  if (S.target == null || S.check == null) return showMsg("You need at least one full lap to start. Drive a lap and it will show up here.");
   showMsg("");
   let d;
   try { d = await api(`/api/compare?file=${encodeURIComponent(S.file)}&ref=${encodeURIComponent(S.target)}&other=${S.check}`); }
@@ -407,12 +429,12 @@ function draw(d) {
   Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false }).then(bindHover);
 }
 
-$("showAll").onchange = renderLaps;
+try { $("hideBad").checked = localStorage.getItem("simtracker.hideBad") === "1"; } catch (e) {}
+$("hideBad").onchange = () => { try { localStorage.setItem("simtracker.hideBad", $("hideBad").checked ? "1" : "0"); } catch (e) {} renderLaps(); };
 $("saveBtn").onclick = saveLap;
 $("exportBtn").onclick = () => { const c = lapInfo(S.check); if (c && c.complete) exportLap({ lap: S.check }); };
 $("importBtn").onclick = () => $("importFile").click();
 $("importFile").onchange = e => { importFile(e.target.files[0]); e.target.value = ""; };
-$("target").onchange = e => { const v = e.target.value; S.target = v.startsWith("saved:") ? v : +v; S.manual = true; compare(); };
 document.addEventListener("click", e => {
   const el = e.target.closest(".rename");
   if (el) renameTurn(+el.dataset.n, el.dataset.name, () => compare());

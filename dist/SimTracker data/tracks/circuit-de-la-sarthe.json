@@ -1,0 +1,270 @@
+{
+ "track": "Circuit de la Sarthe",
+ "layout": "Circuit de la Sarthe",
+ "length_m": 13623.1,
+ "created": "2026-11-18T21:06:27",
+ "detected_turns": 26,
+ "note": "Found automatically from your fastest lap and checked against data/track_catalog.json. You can rename turns here or on the page. Delete this file to find the turns again.",
+ "turns": [
+  {
+   "number": 1,
+   "name": "Turn 1",
+   "start_frac": 0.03705,
+   "apex_frac": 0.04727,
+   "end_frac": 0.05111,
+   "start_m": 505,
+   "apex_m": 644,
+   "end_m": 696
+  },
+  {
+   "number": 2,
+   "name": "Turn 2",
+   "start_frac": 0.05239,
+   "apex_frac": 0.06005,
+   "end_frac": 0.06474,
+   "start_m": 714,
+   "apex_m": 818,
+   "end_m": 882
+  },
+  {
+   "number": 3,
+   "name": "Turn 3",
+   "start_frac": 0.06474,
+   "apex_frac": 0.06601,
+   "end_frac": 0.07198,
+   "start_m": 882,
+   "apex_m": 899,
+   "end_m": 981
+  },
+  {
+   "number": 4,
+   "name": "Turn 4",
+   "start_frac": 0.07538,
+   "apex_frac": 0.07751,
+   "end_frac": 0.08262,
+   "start_m": 1027,
+   "apex_m": 1056,
+   "end_m": 1126
+  },
+  {
+   "number": 5,
+   "name": "Turn 5",
+   "start_frac": 0.08305,
+   "apex_frac": 0.09284,
+   "end_frac": 0.09881,
+   "start_m": 1131,
+   "apex_m": 1265,
+   "end_m": 1346
+  },
+  {
+   "number": 6,
+   "name": "Turn 6",
+   "start_frac": 0.09881,
+   "apex_frac": 0.10392,
+   "end_frac": 0.11201,
+   "start_m": 1346,
+   "apex_m": 1416,
+   "end_m": 1526
+  },
+  {
+   "number": 7,
+   "name": "Turn 7",
+   "start_frac": 0.11244,
+   "apex_frac": 0.13969,
+   "end_frac": 0.15119,
+   "start_m": 1532,
+   "apex_m": 1903,
+   "end_m": 2060
+  },
+  {
+   "number": 8,
+   "name": "Turn 8",
+   "start_frac": 0.28492,
+   "apex_frac": 0.29727,
+   "end_frac": 0.30026,
+   "start_m": 3882,
+   "apex_m": 4050,
+   "end_m": 4090
+  },
+  {
+   "number": 9,
+   "name": "Turn 9",
+   "start_frac": 0.30026,
+   "apex_frac": 0.30153,
+   "end_frac": 0.30707,
+   "start_m": 4090,
+   "apex_m": 4108,
+   "end_m": 4183
+  },
+  {
+   "number": 10,
+   "name": "Turn 10",
+   "start_frac": 0.3075,
+   "apex_frac": 0.31005,
+   "end_frac": 0.31303,
+   "start_m": 4189,
+   "apex_m": 4224,
+   "end_m": 4264
+  },
+  {
+   "number": 11,
+   "name": "Turn 11",
+   "start_frac": 0.42973,
+   "apex_frac": 0.44123,
+   "end_frac": 0.44421,
+   "start_m": 5854,
+   "apex_m": 6011,
+   "end_m": 6051
+  },
+  {
+   "number": 12,
+   "name": "Turn 12",
+   "start_frac": 0.44421,
+   "apex_frac": 0.44676,
+   "end_frac": 0.4523,
+   "start_m": 6051,
+   "apex_m": 6086,
+   "end_m": 6162
+  },
+  {
+   "number": 13,
+   "name": "Turn 13",
+   "start_frac": 0.4523,
+   "apex_frac": 0.45486,
+   "end_frac": 0.45997,
+   "start_m": 6162,
+   "apex_m": 6197,
+   "end_m": 6266
+  },
+  {
+   "number": 14,
+   "name": "Turn 14",
+   "start_frac": 0.55451,
+   "apex_frac": 0.56729,
+   "end_frac": 0.5724,
+   "start_m": 7554,
+   "apex_m": 7728,
+   "end_m": 7798
+  },
+  {
+   "number": 15,
+   "name": "Turn 15",
+   "start_frac": 0.7006,
+   "apex_frac": 0.70869,
+   "end_frac": 0.7155,
+   "start_m": 9544,
+   "apex_m": 9655,
+   "end_m": 9747
+  },
+  {
+   "number": 16,
+   "name": "Turn 16",
+   "start_frac": 0.7155,
+   "apex_frac": 0.72189,
+   "end_frac": 0.72785,
+   "start_m": 9747,
+   "apex_m": 9834,
+   "end_m": 9916
+  },
+  {
+   "number": 17,
+   "name": "Turn 17",
+   "start_frac": 0.7385,
+   "apex_frac": 0.74489,
+   "end_frac": 0.74872,
+   "start_m": 10061,
+   "apex_m": 10148,
+   "end_m": 10200
+  },
+  {
+   "number": 18,
+   "name": "Turn 18",
+   "start_frac": 0.74872,
+   "apex_frac": 0.74957,
+   "end_frac": 0.75043,
+   "start_m": 10200,
+   "apex_m": 10212,
+   "end_m": 10223
+  },
+  {
+   "number": 19,
+   "name": "Turn 19",
+   "start_frac": 0.83177,
+   "apex_frac": 0.84881,
+   "end_frac": 0.8552,
+   "start_m": 11331,
+   "apex_m": 11563,
+   "end_m": 11650
+  },
+  {
+   "number": 20,
+   "name": "Turn 20",
+   "start_frac": 0.8552,
+   "apex_frac": 0.86712,
+   "end_frac": 0.88586,
+   "start_m": 11650,
+   "apex_m": 11813,
+   "end_m": 12068
+  },
+  {
+   "number": 21,
+   "name": "Turn 21",
+   "start_frac": 0.88586,
+   "apex_frac": 0.8931,
+   "end_frac": 0.90545,
+   "start_m": 12068,
+   "apex_m": 12167,
+   "end_m": 12335
+  },
+  {
+   "number": 22,
+   "name": "Turn 22",
+   "start_frac": 0.90545,
+   "apex_frac": 0.91312,
+   "end_frac": 0.91908,
+   "start_m": 12335,
+   "apex_m": 12440,
+   "end_m": 12521
+  },
+  {
+   "number": 23,
+   "name": "Turn 23",
+   "start_frac": 0.9638,
+   "apex_frac": 0.97232,
+   "end_frac": 0.97445,
+   "start_m": 13130,
+   "apex_m": 13246,
+   "end_m": 13275
+  },
+  {
+   "number": 24,
+   "name": "Turn 24",
+   "start_frac": 0.97445,
+   "apex_frac": 0.97913,
+   "end_frac": 0.98126,
+   "start_m": 13275,
+   "apex_m": 13339,
+   "end_m": 13368
+  },
+  {
+   "number": 25,
+   "name": "Turn 25",
+   "start_frac": 0.98126,
+   "apex_frac": 0.98339,
+   "end_frac": 0.98595,
+   "start_m": 13368,
+   "apex_m": 13397,
+   "end_m": 13432
+  },
+  {
+   "number": 26,
+   "name": "Turn 26",
+   "start_frac": 0.98595,
+   "apex_frac": 0.9868,
+   "end_frac": 0.99063,
+   "start_m": 13432,
+   "apex_m": 13443,
+   "end_m": 13495
+  }
+ ]
+}
