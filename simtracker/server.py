@@ -28,6 +28,7 @@ from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, gr
 from simtracker import catalog, settings
 from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
 from simtracker.storage import profiles, saved_laps
+from simtracker.storage.profiles import track_key
 from simtracker.telemetry import cleanup
 from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
 from simtracker.telemetry.info import car_model, read_info
@@ -302,7 +303,7 @@ def api_turns(name: str, include_saved: bool = True) -> dict:
     if include_saved:
         info, here = _info(name)["info"], group_for(FOLDER, name)["id"]
         for meta in saved_laps.list_saved(info):
-            if meta.get("session") != here:
+            if meta["kind"] in ("best", "pinned") and meta.get("session") != here:
                 loaded = saved_laps.load_grid(info, meta["id"])
                 if loaded:
                     saved.append(loaded)
@@ -360,6 +361,38 @@ def api_save_lap(name: str, lap: int) -> dict:
     return {"saved": saved, **api_saved(name)}
 
 
+def _file_name(parts: list[str]) -> str:
+    return re.sub(r"[^A-Za-z0-9._ -]+", "", " - ".join(p for p in parts if p)).strip()[:120] or "SimTracker lap"
+
+
+def api_export(name: str, lap: str | None, saved: str | None, driver: str) -> tuple[bytes, str]:
+    """A lap as a small file to send to a friend: (file content, file name). Either a lap of this session
+    (only laps that count) or one of your own saved laps."""
+    info = _info(name)["info"]
+    if saved:
+        data = saved_laps.export_saved(info, saved, driver)
+        if not data:
+            raise ValueError("That saved lap could not be found.")
+    else:
+        df = _df(name)
+        s = lap_summary(df)
+        n = int(lap)
+        if n not in s.index or not bool(s.loc[n, "complete"]):
+            raise ValueError("Only laps that count can be shared.")
+        data = saved_laps.export_grid(info, float(s.loc[n, "lap_time"]), _lap_grid(df, s, n), driver)
+    label = f"{fmt_time(data['lap_time'])}".replace(":", "-")
+    fname = _file_name(["SimTracker", catalog.short_name(data["track"]), label, data["driver"]]) + ".simlap"
+    return json.dumps(data, separators=(",", ":")).encode("utf-8"), fname
+
+
+def api_import(name: str, data) -> dict:
+    """Keep a lap file from a friend (see saved_laps.import_lap) and say whether it belongs to the track on screen."""
+    meta = saved_laps.import_lap(data)
+    here = _info(name)["info"]
+    same = track_key(here) == track_key(meta)
+    return {"imported": meta, "same_track": same, "items": api_saved(name)["items"]}
+
+
 def api_delete_saved(name: str, rec_id: str) -> dict:
     if not saved_laps.delete(_info(name)["info"], rec_id):
         raise ValueError("Could not delete that lap. (Only laps you saved yourself can be deleted.)")
@@ -382,9 +415,11 @@ STATIC = {   # URL -> (file in web/, content type)
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, body: bytes, ctype: str, status: int = 200):
+    def _send(self, body: bytes, ctype: str, status: int = 200, headers: dict | None = None):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")   # always serve the latest page code
         self.end_headers()
@@ -397,6 +432,9 @@ class Handler(BaseHTTPRequestHandler):
             if u.path in STATIC:
                 fname, ctype = STATIC[u.path]
                 return self._send((WEB_DIR / fname).read_bytes(), ctype)
+            if u.path == "/api/export":
+                body, fname = api_export(q["file"], q.get("lap"), q.get("saved"), q.get("name", ""))
+                return self._send(body, "application/octet-stream", 200, {"Content-Disposition": f'attachment; filename="{fname}"'})
             if u.path == "/api/sessions":
                 data = api_sessions(q.get("all") == "1")
             elif u.path == "/api/trackmap":
@@ -428,14 +466,16 @@ class Handler(BaseHTTPRequestHandler):
             if "application/json" not in (self.headers.get("Content-Type") or ""):
                 return self._send(b'{"error": "expected JSON"}', "application/json", 415)
             size = int(self.headers.get("Content-Length") or 0)
-            if size > 100_000:
+            path = urlparse(self.path).path
+            if size > (3_000_000 if path == "/api/shared/import" else 100_000):
                 return self._send(b'{"error": "too large"}', "application/json", 413)
             body = json.loads(self.rfile.read(size) or b"{}")
-            path = urlparse(self.path).path
             if path == "/api/saved/save":
                 data = api_save_lap(body["file"], int(body["lap"]))
             elif path == "/api/saved/delete":
                 data = api_delete_saved(body["file"], str(body["id"]))
+            elif path == "/api/shared/import":
+                data = api_import(body["file"], body.get("lap"))
             elif path == "/api/sessions/delete":
                 data = api_delete_sessions(list(body.get("names") or []))
             elif path == "/api/turns/rename":

@@ -45,6 +45,16 @@ pit laps and track-limits laps. You can still click one and compare it with any 
 great in a lap that was thrown out). They only never count as a best lap, can't be saved, and are left out of
 *What to practise*. Only a lap that is not a full lap (the one you are still driving) cannot be compared.
 
+**Comparing with a friend.** On the *Compare laps* page, pick one of your laps and press **Export lap**: you are
+asked for your name, and a small `.simlap` file is downloaded (lap time, car, track and the lap's speed, throttle,
+brake, steering and gear along the track, and nothing else: no file paths, nothing about your computer). Send it
+to your friend any way you like. They press **Import a friend's lap…** and pick the file, and they are
+immediately comparing their lap against yours. Friends' laps are listed under *Friends' laps* in
+*Compare it against* (and in *My saved laps*, where you can delete them). Your own saved laps can be exported
+from *My saved laps* too. A friend's lap belongs to the track, so it works whatever car either of you drove, but
+it only appears when you open a session on the same track. It is never counted as one of your own tries in
+*What to practise*. Lap files from other people are checked before they are kept.
+
 **Session names.** The picker names each session from what the file says, newest first: start time (your own time
 zone), circuit, session type, car, and how many runs it has, for example
 `Wed 18 Nov 20:28 · Le Mans · Practice · McLaren 720S LMGT3 Evo`. Everyday circuit names come from the `short` field in

@@ -1,5 +1,6 @@
 // Shared header for every SimTracker page: nav, session picker, and the car / track line.
 const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));   // text from a friend's file must never be treated as markup
 
 async function api(path) {
   const r = await fetch(path); const j = await r.json();
@@ -113,7 +114,6 @@ const App = {
   async carline(file) {
     try {
       const { info } = await api("/api/info?file=" + encodeURIComponent(file));
-      const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
       $("carline").innerHTML =
         `<span class="car">${esc(info.car_model || info.car || "Unknown car")}</span>` +
         (info.car_class ? `<span class="badge">${esc(info.car_class)}</span>` : "") +
@@ -182,7 +182,6 @@ const Manage = {
   async load() {
     try { Manage.rows = await api("/api/sessions?all=1"); }
     catch (e) { $("manageMsg").textContent = "Could not read the session list: " + e.message; return; }
-    const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     $("manageRows").innerHTML = Manage.rows.map((s, i) => {
       const when = new Date(s.mtime * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
       return `<tr><td><input type="checkbox" data-i="${i}" id="mc${i}"></td>

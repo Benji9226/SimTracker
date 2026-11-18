@@ -61,7 +61,8 @@
       <div class="scroll laps"><table id="laps"><thead><tr><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
       <label class="small"><input type="checkbox" id="showAll"> Also show laps that don't count (out and pit laps, and laps with track limits). You can still compare them; they just never count as a best lap or in "What to practise".</label>
       <div class="row"><label for="target">Compare it against</label><select id="target"></select></div>
-      <div class="row"><button class="btn" id="saveBtn">Save this lap</button><span class="small" id="saveMsg" style="margin:0"></span></div>
+      <div class="row"><button class="btn" id="saveBtn">Save this lap</button><button class="btn" id="exportBtn" title="Make a small file of this lap to send to a friend">Export lap</button><button class="btn" id="importBtn" title="Open a lap file a friend sent you">Import a friend's lap…</button><input type="file" id="importFile" accept=".simlap,.json,application/json" hidden></div>
+      <div class="small" id="saveMsg" style="margin:4px 0 0"></div>
       <details class="help" style="margin-top:10px">
         <summary>My saved laps</summary>
         <p class="small" style="margin:6px 0">Your <b>personal best</b> for this track and car is saved automatically, and replaced whenever you set a faster clean lap. Laps you save yourself are kept until you delete them. You can compare against any of them on any day.</p>
@@ -102,8 +103,10 @@ const cleanLaps = () => S.laps.filter(l => l.complete);
 const comparableLaps = () => S.laps.filter(l => l.comparable);      // every full-length lap, also out laps and laps that did not count
 const isSaved = t => typeof t === "string";
 const savedInfo = t => S.saved.find(r => "saved:" + r.id === t);
-const savedName = r => (r.kind === "best" ? "personal best" : "saved lap");
-const savedTitle = r => `${r.kind === "best" ? "★ Personal best" : "Saved lap"} · ${lapT(r.lap_time)} · ${shortDate(r.date)}`;
+const isFriend = r => r.kind === "friend";
+const savedName = r => (r.kind === "best" ? "personal best" : isFriend(r) ? `lap by ${r.driver}` : "saved lap");
+const savedTitle = r => isFriend(r) ? `Friend · ${esc(r.driver)} · ${lapT(r.lap_time)}${r.car_model ? " · " + esc(r.car_model) : ""}`
+  : `${r.kind === "best" ? "★ Personal best" : "Saved lap"} · ${lapT(r.lap_time)} · ${shortDate(r.date)}`;
 
 async function loadTrackMap(file) {            // the circuit's layout drawing, from the local data/track_maps folder
   try {
@@ -214,29 +217,68 @@ function renderLaps() {
     `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)}${l.time === best ? " (best this session)" : ""}</option>`).join("");
   const extra = [...S.laps.filter(l => l.comparable && !l.complete)].sort((a, b) => a.lap - b.lap).map(l =>
     `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)} (${l.reason === "invalid" ? "did not count" : l.reason === "pit" ? "pit lap" : l.reason})</option>`).join("");
-  const sv = S.saved.map(r => `<option value="saved:${r.id}">${savedTitle(r)}</option>`).join("");
-  $("target").innerHTML = (sess ? `<optgroup label="This session">${sess}</optgroup>` : "") + (extra ? `<optgroup label="Laps that don't count">${extra}</optgroup>` : "") + (sv ? `<optgroup label="Saved laps (any day)">${sv}</optgroup>` : "");
+  const opt = r => `<option value="saved:${r.id}">${savedTitle(r)}</option>`;
+  const sv = S.saved.filter(r => !isFriend(r)).map(opt).join(""), fr = S.saved.filter(isFriend).map(opt).join("");
+  $("target").innerHTML = (sess ? `<optgroup label="This session">${sess}</optgroup>` : "") + (extra ? `<optgroup label="Laps that don't count">${extra}</optgroup>` : "") + (sv ? `<optgroup label="Saved laps (any day)">${sv}</optgroup>` : "") + (fr ? `<optgroup label="Friends' laps">${fr}</optgroup>` : "");
   if (S.target != null) $("target").value = String(S.target);
 
   const c = lapInfo(S.check);
   $("saveBtn").disabled = !(c && c.complete);
   $("saveBtn").title = c && !c.complete ? "Only laps that count can be saved" : "";
+  $("exportBtn").disabled = !(c && c.complete);
   $("saveBtn").textContent = c && c.complete ? `Save lap ${S.check} (${lapT(c.time)})` : "Save this lap";
 }
 
 function renderSaved() {
   $("savedList").innerHTML = S.saved.length ? S.saved.map(r => `
-    <div class="saved-item"><div>${savedTitle(r)}<div class="meta">${r.kind === "best" ? "updates automatically" : "saved by you"} · lap ${r.lap}${r.car_model ? " · " + r.car_model : ""}</div></div>
-      ${r.kind === "best" ? "" : `<button class="linkbtn" data-del="${r.id}">Delete</button>`}</div>`).join("")
+    <div class="saved-item"><div>${savedTitle(r)}<div class="meta">${isFriend(r) ? "from a friend" : (r.kind === "best" ? "updates automatically" : "saved by you") + " · lap " + r.lap}${!isFriend(r) && r.car_model ? " · " + esc(r.car_model) : ""}</div></div>
+      <span>${isFriend(r) ? "" : `<button class="linkbtn" data-exp="${r.id}">Export</button> `}${r.kind === "best" ? "" : `<button class="linkbtn" data-del="${r.id}">Delete</button>`}</span></div>`).join("")
     : '<p class="small">Nothing saved yet for this track and car. Your personal best appears here after your first clean lap.</p>';
+  document.querySelectorAll("#savedList [data-exp]").forEach(b => b.onclick = () => exportLap({ saved: b.dataset.exp }));
   document.querySelectorAll("#savedList [data-del]").forEach(b => b.onclick = async () => {
-    if (!confirm("Delete this saved lap? This can't be undone.")) return;
+    if (!confirm("Delete this lap? This can't be undone.")) return;
     try {
       S.saved = (await apiPost("/api/saved/delete", { file: S.file, id: b.dataset.del })).items;
       if (isSaved(S.target) && !savedInfo(S.target)) pickDefaults({ ref: S.bestLap });   // the lap you were comparing against is gone
       renderLaps(); renderSaved(); compare();
     } catch (e) { alert(e.message); }
   });
+}
+
+// Share a lap: the server makes a small .simlap file and the browser downloads it. Your name goes in it.
+function exportLap(what) {
+  let name = "";
+  try { name = localStorage.getItem("simtracker.driver") || ""; } catch (e) {}
+  name = prompt("Your name (your friend will see it on this lap):", name);
+  if (name === null) return;
+  name = name.trim().slice(0, 40);
+  try { localStorage.setItem("simtracker.driver", name); } catch (e) {}
+  const q = new URLSearchParams({ file: S.file, name });
+  if (what.saved) q.set("saved", what.saved); else q.set("lap", what.lap);
+  const a = document.createElement("a");
+  a.href = "/api/export?" + q; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+  say("File downloaded. Send it to your friend; they use \"Import a friend's lap\".");
+}
+
+function say(t) { $("saveMsg").textContent = t; if (t) setTimeout(() => { if ($("saveMsg").textContent === t) $("saveMsg").textContent = ""; }, 9000); }
+
+async function importFile(file) {
+  if (!file) return;
+  try {
+    if (file.size > 2_500_000) throw new Error("That file is too big to be a lap.");
+    let data;
+    try { data = JSON.parse(await file.text()); } catch (e) { throw new Error("That is not a SimTracker lap file."); }
+    const r = await apiPost("/api/shared/import", { file: S.file, lap: data });
+    S.saved = r.items;
+    const m = r.imported, who = `${m.driver}'s ${lapT(m.lap_time)}`;
+    if (r.same_track) {
+      S.target = "saved:" + m.id; S.manual = true;
+      renderLaps(); renderSaved(); compare();
+      say(`Imported ${who}. You are now comparing against it.`);
+    } else {
+      say(`Imported ${who} for ${m.track}. It shows up when you open a session on that track.`);
+    }
+  } catch (e) { say("Could not import: " + e.message); }
 }
 
 async function saveLap() {
@@ -271,12 +313,12 @@ async function compare() {
 }
 
 function targetText() {                    // how the target is named in sentences
-  if (isSaved(S.target)) { const r = savedInfo(S.target); return `your ${savedName(r)} (${lapT(r.lap_time)}, ${shortDate(r.date)})`; }
+  if (isSaved(S.target)) { const r = savedInfo(S.target); return isFriend(r) ? `${esc(r.driver)}'s lap (${lapT(r.lap_time)})` : `your ${savedName(r)} (${lapT(r.lap_time)}, ${shortDate(r.date)})`; }
   const T = lapInfo(S.target); return `lap ${S.target} (${lapT(T.time)})`;
 }
 function targetLabel(single) {             // short name for the chart legend
   if (single) return `Lap ${S.target}`;
-  if (isSaved(S.target)) return `${savedInfo(S.target).kind === "best" ? "Personal best" : "Saved lap"} (target)`;
+  if (isSaved(S.target)) { const r = savedInfo(S.target); return `${isFriend(r) ? r.driver + "'s lap" : r.kind === "best" ? "Personal best" : "Saved lap"} (target)`; }
   return `Lap ${S.target} (target)`;
 }
 
@@ -367,6 +409,9 @@ function draw(d) {
 
 $("showAll").onchange = renderLaps;
 $("saveBtn").onclick = saveLap;
+$("exportBtn").onclick = () => { const c = lapInfo(S.check); if (c && c.complete) exportLap({ lap: S.check }); };
+$("importBtn").onclick = () => $("importFile").click();
+$("importFile").onchange = e => { importFile(e.target.files[0]); e.target.value = ""; };
 $("target").onchange = e => { const v = e.target.value; S.target = v.startsWith("saved:") ? v : +v; S.manual = true; compare(); };
 document.addEventListener("click", e => {
   const el = e.target.closest(".rename");
