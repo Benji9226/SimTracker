@@ -17,6 +17,22 @@ can't be found, a window asks you to pick the folder once and it is remembered.
 Windows may show a *"Windows protected your PC"* warning the first time, because the exe is not signed.
 Click *More info*, then *Run anyway*.
 
+**Updating.** When SimTracker starts it looks at the project's latest release on GitHub (one small request to
+GitHub, nothing about you or your laps is sent; offline it just says nothing). If the release is newer than the
+version you have (shown in the page footer), an **Update application** button appears in the top right corner.
+Pressing it closes the program, downloads the new `SimTracker.exe`, checks it, swaps it in and starts it again; the
+open page reloads by itself. Your laps and settings (the `SimTracker data` folder) are never touched. It only works
+in the double-click program, and only if the repository is public (a private repository cannot be read without
+a login, so nobody sees an update).
+
+**Publishing an update** (for the person who maintains it):
+
+1. Raise `VERSION` in `simtracker/version.py` (for example `1.1.0`).
+2. `python tools/build_exe.py`
+3. On GitHub: *Releases* → *Draft a new release*, tag `v1.1.0` (the same number), attach `dist/SimTracker.exe`, publish.
+
+Everyone running an older version then sees the button within a few hours of their next start.
+
 **From source:**
 
     pip install duckdb pandas numpy            # (add matplotlib for the text report, tracker.py)
@@ -178,7 +194,7 @@ There is also a plain text version for the terminal:
     │  └─ config.json          written automatically: where your Telemetry folder is
     │
     ├─ demo/                 demo.py runs the analysis on made-up data
-    ├─ tools/                build_exe.py makes SimTracker.exe; inspect_lmu.py prints the layout of a telemetry file
+    ├─ tools/                build_exe.py makes SimTracker.exe (version: simtracker/version.py, update check: updater.py); inspect_lmu.py prints the layout of a telemetry file
     ├─ docs/                 lmu_schema.txt, the layout of a real LMU file
     └─ output/               pictures from the text report
 

@@ -25,7 +25,8 @@ from simtracker.analysis.consistency import turn_stats
 from simtracker.analysis.corners import corner_report
 from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map
 from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, grid_points, lap_on_grid, lap_summary
-from simtracker import catalog, settings
+from simtracker import catalog, settings, updater
+from simtracker.version import VERSION
 from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
 from simtracker.storage import profiles, saved_laps
 from simtracker.storage.profiles import track_key
@@ -95,7 +96,7 @@ def api_status() -> dict:
     days = int(settings.load().get("telemetry_cleanup_days") or 0)
     now = cleanup.folder_summary(FOLDER)
     last = _last_cleanup
-    return {"cleanup_days": days, "folder_files": now["files"], "folder_mb": round(now["bytes"] / 1048576, 1),
+    return {"version": VERSION, "cleanup_days": days, "folder_files": now["files"], "folder_mb": round(now["bytes"] / 1048576, 1),
             "last": None if not last else {"at": last["at"], "deleted": len(last["deleted"]),
                                            "freed_mb": round(last["freed_bytes"] / 1048576, 1), "kept": len(last["kept"])}}
 
@@ -441,6 +442,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_trackmap(q["file"])
             elif u.path == "/api/status":
                 data = api_status()
+            elif u.path == "/api/update":
+                data = updater.status()
             elif u.path == "/api/info":
                 data = _info(q["file"])
             elif u.path == "/api/turns":
@@ -474,6 +477,9 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_save_lap(body["file"], int(body["lap"]))
             elif path == "/api/saved/delete":
                 data = api_delete_saved(body["file"], str(body["id"]))
+            elif path == "/api/update/install":
+                updater.install()                          # downloads, then this program closes and starts again
+                data = {"ok": True}
             elif path == "/api/shared/import":
                 data = api_import(body["file"], body.get("lap"))
             elif path == "/api/sessions/delete":
@@ -530,7 +536,10 @@ def main():
         _stop_with(f"Could not start on port {PORT}: {e}\nSomething else is using that port.")
     print("SimTracker is running. Keep this window open while you use it; close it to stop.")
     print(f"Reading sessions from {FOLDER}\nDashboard: {url}  (Ctrl+C to stop)")
-    threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    if "--after-update" not in sys.argv:           # after an update the page that is already open reloads itself
+        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    updater.leftovers_cleanup()
+    updater.start_background()
     threading.Thread(target=_cleanup_loop, daemon=True).start()
     try:
         srv.serve_forever()

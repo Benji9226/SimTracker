@@ -39,3 +39,7 @@ dialog#manage h3 { margin:0 0 6px; font-size:16px; }
 #manage .mlist { max-height:50vh; overflow:auto; border:1px solid var(--line); border-radius:6px; }
 #manage .mlist td { padding:4px 8px; }
 #manage label { cursor:pointer; }
+#updateBtn { margin-left:auto; }
+.btn.primary { border-color:var(--a); }
+#updating { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; text-align:center; font-size:20px; z-index:50; color:#fff; line-height:1.6; }
+#updating span { font-size:14px; opacity:.8; }

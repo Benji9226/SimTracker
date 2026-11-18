@@ -24,18 +24,20 @@ const App = {
         <select id="sessions"></select>
         <button class="btn small-btn" id="manageBtn" title="Delete old telemetry sessions to free up space">Manage sessions…</button>
         <span class="pill" id="status"></span>
+        <button class="btn small-btn primary" id="updateBtn" hidden></button>
       </div>
       <div id="notice" class="notice" hidden></div>
       <div id="carline"></div>`;
     if (!$("appFooter")) document.body.insertAdjacentHTML("beforeend", '<footer id="appFooter"></footer>');
     api("/api/status").then(s => {
       const last = s.last ? ` Last check ${new Date(s.last.at).toLocaleString()}: ${s.last.deleted ? `deleted ${s.last.deleted} file${s.last.deleted === 1 ? "" : "s"} (${s.last.freed_mb} MB)` : "nothing to delete"}${s.last.kept ? `, ${s.last.kept} left alone` : ""}.` : "";
-      $("appFooter").textContent = (s.cleanup_days > 0
+      $("appFooter").textContent = `SimTracker ${s.version}. ` + (s.cleanup_days > 0
         ? `Old telemetry is cleaned up automatically: session files not written to for ${s.cleanup_days} days are deleted (your saved laps are kept).`
         : "Automatic telemetry clean-up is off.") + ` Telemetry folder: ${s.folder_files} files, ${s.folder_mb} MB.` + last;
     }).catch(() => {});
     $("sessions").onchange = e => App.choose(e.target.value, onSession);
     $("manageBtn").onclick = () => Manage.open(() => App.refresh());
+    Updates.start();
     const poll = async () => {
       const list = await api("/api/sessions");
       App.sessions = list;
@@ -221,5 +223,41 @@ const Manage = {
     } catch (e) { $("manageMsg").textContent = "Could not delete: " + e.message; }
     await Manage.load();
     if (Manage.after) Manage.after();
+  },
+};
+
+// "Update application": shown in the top right corner when a newer version is published. Pressing it closes the program,
+// downloads the new version and starts it again; this page waits for it and reloads itself.
+const Updates = {
+  info: null,
+  async start() {
+    try { Updates.info = await api("/api/update"); } catch (e) { return; }
+    Updates.show();
+    setTimeout(() => Updates.start(), 30 * 60 * 1000);          // (the program itself looks online every few hours)
+  },
+  show() {
+    const b = $("updateBtn"), i = Updates.info;
+    if (!b || !i || !i.available || !i.can_install) { if (b) b.hidden = true; return; }
+    b.textContent = "Update application";
+    b.title = `A new version (${i.latest}) is available. You have ${i.current}.` + (i.notes ? "\n\n" + i.notes : "");
+    b.hidden = false;
+    b.onclick = Updates.install;
+  },
+  async install() {
+    const i = Updates.info;
+    if (!confirm(`Update SimTracker from ${i.current} to ${i.latest}?\n\nThe program closes, downloads the new version and starts again by itself. Your laps and settings are kept. This takes about a minute.`)) return;
+    const b = $("updateBtn");
+    b.disabled = true; b.textContent = "Downloading…";
+    try { await apiPost("/api/update/install", {}); }
+    catch (e) { b.disabled = false; b.textContent = "Update application"; alert(e.message); return; }
+    b.textContent = "Restarting…";
+    document.body.insertAdjacentHTML("beforeend", '<div id="updating"><div>Updating SimTracker…<br><span>Please wait. This page reloads by itself when the new version is ready.</span></div></div>');
+    const started = Date.now();
+    const wait = async () => {
+      try { const s = await api("/api/status"); if (s.version !== i.current) { location.reload(); return; } } catch (e) {}
+      if (Date.now() - started > 180000) { $("updating").innerHTML = "<div>This is taking longer than expected.<br><span>If SimTracker did not open again, start it from the file SimTracker.exe.</span></div>"; return; }
+      setTimeout(wait, 2000);
+    };
+    setTimeout(wait, 4000);
   },
 };
