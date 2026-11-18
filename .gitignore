@@ -1,0 +1,17 @@
+# Built program: it is published as a GitHub release, not committed (it is ~60 MB per version).
+dist/
+build/
+
+# Personal data written while using the program: everyone has their own.
+data/saved_laps/
+data/tracks/
+data/config.json
+data/settings.json
+data/cleanup_log.txt
+SimTracker data/
+
+# Misc
+output/
+__pycache__/
+*.pyc
+.qodo/

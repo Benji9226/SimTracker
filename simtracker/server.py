@@ -23,7 +23,7 @@ import numpy as np
 
 from simtracker.analysis.consistency import turn_stats
 from simtracker.analysis.corners import corner_report
-from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map
+from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map, outline_from_lap
 from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, grid_points, lap_on_grid, lap_summary
 from simtracker import catalog, settings, updater
 from simtracker.version import VERSION
@@ -116,6 +116,19 @@ def _map_dot(df, summary, clean, m) -> dict | None:
             "points": [[round(float(x), 4), round(float(y), 4)] for x, y in found["points"]]}
 
 
+def _gps_map(df, summary, clean, info) -> dict | None:
+    """A drawing made from the lap's own GPS positions, for a layout that has no drawing in data/track_maps
+    (for example the short Sebring School Circuit). The dot then follows the lap exactly."""
+    lap = int(clean["lap_time"].idxmin())
+    length = float(summary.loc[lap, "length_m"])
+    xy = lap_xy(df, lap, length, n=400)
+    if xy is None:
+        return None
+    pts = [[round(float(x), 4), round(float(y), 4)] for x, y in outline_from_lap(xy)]
+    return {"slug": "gps", "title": info.get("layout") or info.get("track") or "Track", "author": "the game's own GPS positions",
+            "shapes": [{"kind": "stroke", "rings": [pts]}], "dot": {"length": round(length, 1), "rms": 0.0, "points": pts}}
+
+
 def api_trackmap(name: str) -> dict:
     """The drawing of this session's track layout (from data/track_maps), or {"map": None}.
 
@@ -128,12 +141,14 @@ def api_trackmap(name: str) -> dict:
         return {"map": None}
     entry = catalog.find(info.get("track", ""), float(clean["length_m"].median()))
     slug = entry.get("map") if entry else None
-    if not slug or not re.fullmatch(r"[a-z0-9]+", slug):
-        return {"map": None}
-    try:
-        m = json.loads((MAPS_DIR / f"{slug}.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {"map": None}
+    m = None
+    if slug and re.fullmatch(r"[a-z0-9]+", slug):
+        try:
+            m = json.loads((MAPS_DIR / f"{slug}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            m = None
+    if m is None:                                  # no drawing for this layout: draw it from the lap itself
+        return {"map": _gps_map(_df(name), s, clean, info)}
     m["dot"] = _map_dot(df=_df(name), summary=s, clean=clean, m=m)
     return {"map": m}
 
