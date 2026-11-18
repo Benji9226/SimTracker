@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimTracker – Compare laps</title>
+<script src="/plotly.min.js"></script>
+<link rel="stylesheet" href="/common.css">
+<style>
+  main { display:grid; grid-template-columns: 340px 1fr; gap:16px; padding:16px; align-items:start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  aside { display:grid; gap:16px; }
+  .scroll { overflow-y:auto; scrollbar-width:thin; }
+  .scroll.laps { max-height:230px; }
+  .scroll.turns { max-height:360px; }
+  .scroll thead th { position:sticky; top:0; background:var(--panel); z-index:1; box-shadow:0 1px 0 var(--line); }
+  tr.pick { cursor:pointer; }
+  tr.pick:hover td { background:rgba(128,128,128,.12); }
+  tr.sel td { background:rgba(77,163,255,.18); font-weight:600; }
+  tr.dim td { color:var(--dim); }
+  .best-tag { font-size:11px; color:var(--good); margin-left:6px; }
+  td.num, th.num { text-align:right; }
+  .row { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  .row select { max-width:100%; }
+  .small { font-size:12px; color:var(--dim); display:block; margin-top:8px; }
+  .pos { color:var(--b); } .neg { color:var(--good); }
+  #summary p { margin:0; font-size:16px; line-height:1.4; }
+  #pbnote { display:none; font-size:13px; color:var(--good); border:1px solid var(--good); border-radius:8px; padding:6px 10px; margin-bottom:10px; }
+  #chips { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 4px; align-items:center; }
+  #chips .lead { color:var(--dim); font-size:12px; margin-right:4px; }
+  .chip { font-size:12px; padding:3px 9px; border-radius:99px; border:1px solid var(--line); }
+  .chip.lose { border-color:var(--b); color:var(--b); }
+  .chip.gain { border-color:var(--good); color:var(--good); }
+  .help { margin-top:14px; color:var(--dim); font-size:13px; line-height:1.55; }
+  .help summary { cursor:pointer; color:var(--text); }
+  .help li { margin:4px 0; }
+  .caption { color:var(--dim); font-size:12px; margin:8px 0 0; }
+  #mapCard svg { display:block; width:100%; max-height:210px; }
+  .mapdot { fill:#ffb84d; stroke:var(--bg); stroke-width:2px; vector-effect:non-scaling-stroke; pointer-events:none; }
+  .mapline { fill:none; stroke:var(--text); stroke-width:3.5px; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+  .mapfill { fill:var(--text); fill-rule:evenodd; stroke:var(--text); stroke-width:2px; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+
+  .saved-item { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .saved-item:last-child { border-bottom:0; }
+  .saved-item .meta { color:var(--dim); font-size:12px; }
+  .linkbtn { background:none; border:0; color:var(--b); cursor:pointer; font:inherit; font-size:12px; padding:0; }
+</style>
+</head>
+<body>
+<header></header>
+<main>
+  <aside>
+    <div class="card" id="mapCard" hidden>
+      <h2 id="mapTitle">Track layout</h2>
+      <div id="mapBox"></div>
+    </div>
+    <div class="card">
+      <h2>1 · Click a lap to check</h2>
+      <div class="scroll laps"><table id="laps"><thead><tr><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
+      <label class="small"><input type="checkbox" id="showAll"> Also show laps that don't count (pit laps, unfinished laps, and laps the game marked invalid, such as track limits)</label>
+      <div class="row"><label for="target">Compare it against</label><select id="target"></select></div>
+      <div class="row"><button class="btn" id="saveBtn">Save this lap</button><span class="small" id="saveMsg" style="margin:0"></span></div>
+      <details class="help" style="margin-top:10px">
+        <summary>My saved laps</summary>
+        <p class="small" style="margin:6px 0">Your <b>personal best</b> for this track and car is saved automatically, and replaced whenever you set a faster clean lap. Laps you save yourself are kept until you delete them. You can compare against any of them on any day.</p>
+        <div id="savedList"></div>
+      </details>
+    </div>
+    <div class="card">
+      <h2 id="turnTitle">2 · Turn by turn</h2>
+      <div class="scroll turns"><table id="turnTable"><thead></thead><tbody></tbody></table></div>
+      <span class="small">Click a turn name to rename it.</span>
+    </div>
+  </aside>
+  <section class="card">
+    <div id="pbnote"></div>
+    <div id="summary"></div>
+    <div id="chips"></div>
+    <div id="msg">Loading…</div>
+    <div id="chart"></div>
+    <p class="caption" id="caption"></p>
+    <details class="help">
+      <summary>How to read this page</summary>
+      <ul>
+        <li><b>Clean lap</b>: a full lap that didn't go through the pit lane. Only clean laps can be compared or saved.</li>
+        <li><b>Time gap</b> (top chart): when the line goes up, the lap you're checking is falling behind the other lap. When it goes down, it's catching up.</li>
+        <li><b>Brake</b> and <b>throttle</b>: if one lap brakes earlier, or gets back on the throttle later, you'll see it here.</li>
+        <li><b>T1, T2 ...</b> along the top are the turns, so you can see which part of the track you're looking at.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+<script src="/common.js"></script>
+<script>
+// S.target is either a lap number of this session, or "saved:<id>" for a lap saved earlier.
+const S = { dot: null, chartLen: 0, file: null, laps: [], saved: [], target: null, check: null, manual: false, corners: [], single: false, bestLap: null };
+const lapT = s => { const m = Math.floor(s / 60); return m + ":" + (s - m * 60).toFixed(3).padStart(6, "0"); };
+const lapInfo = n => S.laps.find(l => l.lap === n);
+const cleanLaps = () => S.laps.filter(l => l.complete);
+const isSaved = t => typeof t === "string";
+const savedInfo = t => S.saved.find(r => "saved:" + r.id === t);
+const savedName = r => (r.kind === "best" ? "personal best" : "saved lap");
+const savedTitle = r => `${r.kind === "best" ? "★ Personal best" : "Saved lap"} · ${lapT(r.lap_time)} · ${shortDate(r.date)}`;
+
+async function loadTrackMap(file) {            // the circuit's layout drawing, from the local data/track_maps folder
+  try {
+    const { map } = await api("/api/trackmap?file=" + encodeURIComponent(file));
+    if (file !== S.file) return;               // another session was opened meanwhile
+    drawTrackMap(map);
+  } catch (e) { drawTrackMap(null); }
+}
+
+function drawTrackMap(m) {
+  const card = $("mapCard");
+  if (!m || !m.shapes || !m.shapes.length) { card.hidden = true; return; }
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  m.shapes.forEach(s => s.rings.forEach(r => r.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); })));
+  const pad = 0.05;
+  const path = s => s.rings.map(r => "M" + r.map(p => p[0] + " " + p[1]).join("L") + (s.kind === "fill" ? "Z" : "")).join(" ");
+  $("mapBox").innerHTML = `<svg viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}" role="img" aria-label="Track layout of ${m.title}">` +
+    m.shapes.map(s => `<path class="${s.kind === "fill" ? "mapfill" : "mapline"}" d="${path(s)}"/>`).join("") + (m.dot ? '<circle id="mapDot" class="mapdot" r="0.02" visibility="hidden"/>' : "") + "</svg>";
+  S.dot = m.dot || null;
+  $("mapTitle").textContent = "Track layout · " + m.title;
+  card.hidden = false;
+  const dot = $("mapDot"), svg = $("mapBox").querySelector("svg");
+  if (dot) dot.setAttribute("r", (6 * svg.viewBox.baseVal.width / svg.getBoundingClientRect().width).toFixed(5));   // about 6 px
+}
+
+// Put the dot on the map where the mouse is on the charts (x = distance around the lap).
+function moveDot(x) {
+  const dot = $("mapDot");
+  if (!dot) return;
+  if (!S.dot || x == null || !S.chartLen) { dot.setAttribute("visibility", "hidden"); return; }
+  const pts = S.dot.points, i = Math.max(0, Math.min(pts.length - 1, Math.round(x / S.chartLen * (pts.length - 1))));
+  dot.setAttribute("cx", pts[i][0]); dot.setAttribute("cy", pts[i][1]); dot.setAttribute("visibility", "visible");
+}
+
+function bindHover() {
+  const gd = $("chart");
+  if (!gd.on) return;
+  if (gd.removeAllListeners) { gd.removeAllListeners("plotly_hover"); gd.removeAllListeners("plotly_unhover"); }
+  gd.on("plotly_hover", e => moveDot(e.points && e.points.length ? e.points[0].x : null));
+  gd.on("plotly_unhover", () => moveDot(null));
+}
+
+function resetView() {                       // nothing from the previous session may stay on screen
+  S.laps = []; S.saved = []; S.target = null; S.check = null; S.corners = [];
+  $("laps").querySelector("tbody").innerHTML = ""; $("target").innerHTML = ""; $("savedList").innerHTML = "";
+  $("saveBtn").disabled = true; $("saveBtn").textContent = "Save this lap"; $("saveMsg").textContent = "";
+  $("pbnote").style.display = "none";
+  $("mapCard").hidden = true;
+  showMsg("Loading…");
+}
+
+function pickDefaults(d) {
+  S.target = d.ref;                                           // your best clean lap this session ...
+  const pb = S.saved.find(r => r.kind === "best"), mine = cleanLaps().find(l => l.lap === d.ref);
+  if (pb && (!mine || pb.lap_time < mine.time - 0.0005)) S.target = "saved:" + pb.id;   // ... unless a faster one is saved
+  const others = cleanLaps().filter(l => l.lap !== S.target).sort((a, b) => b.lap - a.lap);
+  S.check = others.length ? others[0].lap : (isSaved(S.target) ? d.ref : S.target);       // your newest other clean lap
+}
+
+async function loadSession(file, keep) {
+  App.status("loading…");
+  try {
+    // Read everything first. If this fails (for instance the game still has the new session's file locked)
+    // nothing on screen has been touched, and the caller keeps showing the last session that worked.
+    const d = await api("/api/laps?file=" + encodeURIComponent(file));      // (this also keeps your personal best up to date)
+    const saved = (await api("/api/saved?file=" + encodeURIComponent(file))).items;
+    if (!keep) resetView();                    // the new session opened: replace the old one completely
+    S.saved = saved;
+    S.file = file; S.laps = d.laps; S.bestLap = d.ref;
+    const note = $("pbnote");
+    if (d.pb && d.pb.updated) { note.style.display = "block"; note.textContent = `New personal best saved: ${lapT(d.pb.lap_time)}`; }
+    else if (!keep) note.style.display = "none";
+    if (!keep) S.manual = false;
+    const clean = cleanLaps(), ok = n => clean.some(l => l.lap === n);
+    const targetOk = isSaved(S.target) ? !!savedInfo(S.target) : ok(S.target);
+    if (!S.manual || !targetOk || !ok(S.check)) pickDefaults(d);
+    renderLaps(); renderSaved();
+    await compare();
+    if (!keep || $("mapCard").hidden) loadTrackMap(file);
+    return true;
+  } catch (e) {
+    if (!S.file) showMsg("Could not load session: " + e.message);          // nothing on screen yet: say why
+    return false;                                                           // otherwise leave what is shown alone
+  } finally { App.status(""); }
+}
+
+function renderLaps() {
+  const clean = cleanLaps();
+  const best = clean.length ? Math.min(...clean.map(l => l.time)) : null;
+  const rows = S.laps.filter(l => l.complete || $("showAll").checked).sort((a, b) => b.lap - a.lap);
+  $("laps").querySelector("tbody").innerHTML = rows.map(l => {
+    const gap = l.complete && best != null && l.time !== best ? "+" + (l.time - best).toFixed(3) : "";
+    const tag = l.complete && l.time === best ? '<span class="best-tag">best</span>' : (!l.complete ? ` <span class="pill" title="${l.reason === "invalid" ? "The game did not count this lap (for example track limits)" : l.reason === "pit" ? "Pit lane visit" : "Not a full lap"}">${l.reason}</span>` : "");
+    return `<tr class="${l.complete ? "pick" : "dim"} ${l.lap === S.check ? "sel" : ""}" data-lap="${l.lap}">
+      <td>${l.lap}</td><td class="num">${lapT(l.time)}${tag}</td><td class="num">${gap}</td></tr>`;
+  }).join("");
+  document.querySelectorAll("#laps tr.pick").forEach(tr => tr.onclick = () => { S.check = +tr.dataset.lap; S.manual = true; renderLaps(); compare(); });
+
+  const sess = [...clean].sort((a, b) => a.time - b.time).map(l =>
+    `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)}${l.time === best ? " (best this session)" : ""}</option>`).join("");
+  const sv = S.saved.map(r => `<option value="saved:${r.id}">${savedTitle(r)}</option>`).join("");
+  $("target").innerHTML = (sess ? `<optgroup label="This session">${sess}</optgroup>` : "") + (sv ? `<optgroup label="Saved laps (any day)">${sv}</optgroup>` : "");
+  if (S.target != null) $("target").value = String(S.target);
+
+  const c = lapInfo(S.check);
+  $("saveBtn").disabled = !(c && c.complete);
+  $("saveBtn").textContent = c && c.complete ? `Save lap ${S.check} (${lapT(c.time)})` : "Save this lap";
+}
+
+function renderSaved() {
+  $("savedList").innerHTML = S.saved.length ? S.saved.map(r => `
+    <div class="saved-item"><div>${savedTitle(r)}<div class="meta">${r.kind === "best" ? "updates automatically" : "saved by you"} · lap ${r.lap}${r.car_model ? " · " + r.car_model : ""}</div></div>
+      ${r.kind === "best" ? "" : `<button class="linkbtn" data-del="${r.id}">Delete</button>`}</div>`).join("")
+    : '<p class="small">Nothing saved yet for this track and car. Your personal best appears here after your first clean lap.</p>';
+  document.querySelectorAll("#savedList [data-del]").forEach(b => b.onclick = async () => {
+    if (!confirm("Delete this saved lap? This can't be undone.")) return;
+    try {
+      S.saved = (await apiPost("/api/saved/delete", { file: S.file, id: b.dataset.del })).items;
+      if (isSaved(S.target) && !savedInfo(S.target)) pickDefaults({ ref: S.bestLap });   // the lap you were comparing against is gone
+      renderLaps(); renderSaved(); compare();
+    } catch (e) { alert(e.message); }
+  });
+}
+
+async function saveLap() {
+  const c = lapInfo(S.check);
+  if (!c || !c.complete) return;
+  $("saveBtn").disabled = true;
+  try {
+    const r = await apiPost("/api/saved/save", { file: S.file, lap: S.check });
+    S.saved = r.items;
+    $("saveMsg").textContent = `Saved. Find it under "Compare it against".`;
+    setTimeout(() => { $("saveMsg").textContent = ""; }, 6000);
+  } catch (e) { $("saveMsg").textContent = e.message; }
+  renderLaps(); renderSaved();
+}
+
+function showMsg(t) {
+  $("msg").textContent = t; $("msg").style.display = t ? "block" : "none";
+  if (t) { Plotly.purge("chart"); $("summary").innerHTML = ""; $("chips").innerHTML = ""; $("caption").textContent = "";
+           $("turnTable").querySelector("tbody").innerHTML = ""; }
+}
+
+async function compare() {
+  if (S.target == null || S.check == null) return showMsg("You need at least one clean lap (a full lap without a pit visit) to start. Drive a lap and it will show up here.");
+  showMsg("");
+  let d;
+  try { d = await api(`/api/compare?file=${encodeURIComponent(S.file)}&ref=${encodeURIComponent(S.target)}&other=${S.check}`); }
+  catch (e) { return showMsg("Could not compare these laps: " + e.message); }
+  S.single = d.single; S.corners = d.corners;
+  renderSummary(d);
+  renderTurnTable(d);
+  draw(d);
+}
+
+function targetText() {                    // how the target is named in sentences
+  if (isSaved(S.target)) { const r = savedInfo(S.target); return `your ${savedName(r)} (${lapT(r.lap_time)}, ${shortDate(r.date)})`; }
+  const T = lapInfo(S.target); return `lap ${S.target} (${lapT(T.time)})`;
+}
+function targetLabel(single) {             // short name for the chart legend
+  if (single) return `Lap ${S.target}`;
+  if (isSaved(S.target)) return `${savedInfo(S.target).kind === "best" ? "Personal best" : "Saved lap"} (target)`;
+  return `Lap ${S.target} (target)`;
+}
+
+function renderSummary(d) {
+  const C = lapInfo(S.check);
+  if (d.single) {
+    $("summary").innerHTML = `<p><b>Lap ${S.target}</b> · ${lapT(lapInfo(S.target).time)}</p>`;
+    $("chips").innerHTML = `<span class="lead">${cleanLaps().length < 2 && !S.saved.length ? "This is your only clean lap so far. Drive another one to compare." : "You're looking at one lap. Click a different lap on the left, or pick something else to compare against."}</span>`;
+    return;
+  }
+  const g = d.final_delta, slower = g > 0;
+  $("summary").innerHTML = Math.abs(g) < 0.0005
+    ? `<p>Lap ${S.check} (${lapT(C.time)}) is <b>exactly the same time</b> as ${targetText()}.</p>`
+    : `<p>Lap ${S.check} (${lapT(C.time)}) is <b class="${slower ? "pos" : "neg"}">${Math.abs(g).toFixed(3)} s ${slower ? "slower" : "faster"}</b> than ${targetText()}.</p>`;
+  const turns = d.corners.filter(c => c.number != null);
+  const lose = turns.filter(c => c.time_change_s >= 0.03).sort((a, b) => b.time_change_s - a.time_change_s).slice(0, 3);
+  const gain = turns.filter(c => c.time_change_s <= -0.03).sort((a, b) => a.time_change_s - b.time_change_s).slice(0, 3);
+  const chip = (c, cls) => `<span class="chip ${cls}">${c.name} ${c.time_change_s > 0 ? "+" : "−"}${Math.abs(c.time_change_s).toFixed(2)} s</span>`;
+  $("chips").innerHTML = (lose.length ? `<span class="lead">Lost time in:</span>${lose.map(c => chip(c, "lose")).join("")}` : "") +
+                         (gain.length ? `<span class="lead" style="margin-left:8px">Gained time in:</span>${gain.map(c => chip(c, "gain")).join("")}` : "") +
+                         (!lose.length && !gain.length ? `<span class="lead">No single turn stands out. These two laps are very similar.</span>` : "");
+}
+
+function turnName(r) {
+  return r.number == null ? "Straights" : `<span class="rename" title="Click to rename" data-n="${r.number}" data-name="${r.name.replace(/"/g, "&quot;")}">${r.name}</span>`;
+}
+
+function renderTurnTable(d) {
+  const head = $("turnTable").querySelector("thead"), body = $("turnTable").querySelector("tbody");
+  if (d.single) {
+    $("turnTitle").textContent = "2 · Time in each turn";
+    head.innerHTML = "<tr><th>Turn</th><th class='num'>Time</th></tr>";
+    body.innerHTML = d.corners.filter(r => r.ref_time_s != null).map(r => `<tr><td>${turnName(r)}</td><td class="num">${r.ref_time_s.toFixed(3)} s</td></tr>`).join("");
+    return;
+  }
+  $("turnTitle").textContent = "2 · Turn by turn";
+  head.innerHTML = "<tr><th>Turn</th><th class='num'>Compared with target</th></tr>";
+  body.innerHTML = d.corners.map(r => {
+    const v = r.time_change_s, a = Math.abs(v);
+    const res = a < 0.005 ? "same" : `<span class="${v > 0 ? "pos" : "neg"}">${a.toFixed(3)} s ${v > 0 ? "slower" : "faster"}</span>`;
+    const br = r.brake_diff_m == null || Math.abs(r.brake_diff_m) < 3 ? "" :
+      `<div class="pill">braked ${Math.abs(r.brake_diff_m).toFixed(0)} m ${r.brake_diff_m < 0 ? "earlier" : "later"}</div>`;
+    return `<tr><td>${turnName(r)}</td><td class="num">${res}${br}</td></tr>`;
+  }).join("");
+}
+
+function draw(d) {
+  const single = d.single;
+  const gears = [...(d.ref.gear || []), ...(d.other.gear || [])].filter(v => v != null);     // laps saved before gears were recorded have none
+  const panels = [];
+  if (!single) panels.push({ k: "gap", title: "Time gap (s)", w: 0.26, hv: "%{y:+.3f} s" });
+  panels.push({ k: "speed", title: "Speed (km/h)", w: 0.30, hv: "%{y:.0f} km/h" });
+  if (gears.length) panels.push({ k: "gear", title: "Gear", w: 0.17, gear: true, hv: "%{y:.0f}" });
+  panels.push({ k: "throttle", title: "Throttle", w: 0.17, pct: true, hv: "%{y:.0%}" });
+  panels.push({ k: "brake", title: "Brake", w: 0.17, pct: true, hv: "%{y:.0%}" });
+  panels.push({ k: "steer", title: "Steering", w: 0.17, hv: "%{y:.0f}°" });
+  const total = panels.reduce((s, p) => s + p.w, 0);
+  const gap = 0.02, traces = [], layout = {
+    height: 120 * panels.length + 150, margin: { l: 62, r: 16, t: 40, b: 110 },
+    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { color: getComputedStyle(document.body).color },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -70 / (120 * panels.length), yanchor: "top" }, hovermode: "x unified", hoverlabel: hoverStyle(),
+  };
+  let top = 1;
+  panels.forEach((p, i) => {
+    const h = p.w / total, ax = i === 0 ? "" : i + 1;
+    layout["xaxis" + ax] = { domain: [0, 1], anchor: "y" + ax, matches: "x", hoverformat: ".0f", showticklabels: i === panels.length - 1,
+      gridcolor: "rgba(128,128,128,.2)", title: i === panels.length - 1 ? "Distance around the lap (m)" : undefined };
+    layout["yaxis" + ax] = { domain: [top - h + gap, top], anchor: "x" + ax, gridcolor: "rgba(128,128,128,.2)", title: p.title,
+      zeroline: p.k === "gap", ...(p.pct ? { tickformat: ".0%", range: [0, 1.05] } : {}),
+      ...(p.gear ? { dtick: 1, range: [Math.max(0, Math.min(...gears)) - 0.5, Math.max(...gears) + 0.5] } : {}) };
+    top -= h;
+    const xa = "x" + ax, ya = "y" + ax;
+    if (p.k === "gap") {
+      traces.push({ x: d.dist, y: d.delta, name: "Time gap", line: { color: "#ffb84d", width: 2 }, fill: "tozeroy", fillcolor: "rgba(255,184,77,.15)", xaxis: xa, yaxis: ya, showlegend: false, hovertemplate: p.hv });
+    } else {
+      const shape = p.gear ? "hv" : "linear";           // gears change in steps
+      if (d.ref[p.k]) traces.push({ x: d.dist, y: d.ref[p.k], name: targetLabel(single), line: { color: "#4da3ff", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
+      if (!single && d.other[p.k]) traces.push({ x: d.dist, y: d.other[p.k], name: `Lap ${S.check} (checking)`, line: { color: "#ff6b6b", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
+    }
+  });
+  layout.annotations = d.corners.filter(c => c.apex_m != null).map(c => ({
+    x: c.apex_m, y: 1, xref: "x", yref: "paper", text: "T" + c.number, showarrow: false, yanchor: "bottom", yshift: 4, font: { size: 10, color: "#8a90a2" } }));
+  $("chart").style.height = layout.height + "px";
+  $("caption").textContent = single ? "" : "Top chart: when the line goes up, the lap you're checking is falling behind. T1, T2 ... mark the turns.";
+  S.chartLen = d.dist[d.dist.length - 1];
+  Plotly.react("chart", traces, layout, { responsive: true, displaylogo: false }).then(bindHover);
+}
+
+$("showAll").onchange = renderLaps;
+$("saveBtn").onclick = saveLap;
+$("target").onchange = e => { const v = e.target.value; S.target = v.startsWith("saved:") ? v : +v; S.manual = true; compare(); };
+document.addEventListener("click", e => {
+  const el = e.target.closest(".rename");
+  if (el) renameTurn(+el.dataset.n, el.dataset.name, () => compare());
+});
+App.start("laps", (file, keep) => loadSession(file, keep));
+</script>
+</body>
+</html>

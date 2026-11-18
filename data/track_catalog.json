@@ -1,0 +1,295 @@
+{
+  "note": "Official turn counts for the circuits in Le Mans Ultimate, read once from the game's own site (lemansultimate.com/circuits) and stored here: the app never goes online. Used to check (and gently correct) the turns found from your laps. 'confidence': high = the official site gives this figure for this layout, so the app may fix its own turn list toward it; medium = from other sources, so the count is only shown. 'length_m' is the lap length: an entry is only used when your lap is within 4% of it, and when two entries fit, the closer one wins. 'named_corners_mentioned' are corner names the site gives without turn numbers (not used yet). 'names' (turn-by-turn names) exist only where the numbering is known to be right. Add or correct entries freely. 'map' links an entry to its layout drawing in data/track_maps/ (see CREDITS.md there).",
+  "tracks": [
+    {
+      "name": "Autodromo Nazionale Monza",
+      "aliases": [
+        "monza"
+      ],
+      "length_m": 5793,
+      "expected_turns": 11,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18; corner names confirmed by the driver",
+      "named_corners_mentioned": [
+        "Curva Grande",
+        "Curva di Lesmo",
+        "Variante Ascari"
+      ],
+      "names": [
+        "Turn 1 (Rettifilo)",
+        "Turn 2 (Rettifilo)",
+        "Turn 3 (Curva Grande)",
+        "Turn 4 (Roggia)",
+        "Turn 5 (Roggia)",
+        "Turn 6 (Lesmo 1)",
+        "Turn 7 (Lesmo 2)",
+        "Turn 8 (Ascari)",
+        "Turn 9 (Ascari)",
+        "Turn 10 (Ascari)",
+        "Turn 11 (Parabolica)"
+      ],
+      "map": "monza"
+    },
+    {
+      "name": "Circuit de Spa-Francorchamps",
+      "aliases": [
+        "spa-francorchamps",
+        "spa"
+      ],
+      "length_m": 7004,
+      "expected_turns": 19,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "La Source",
+        "Eau Rouge",
+        "Raidillon",
+        "Blanchimont"
+      ],
+      "note": "The official page says 19 turns in its description but 20 in its details table; 19 is the standard numbering and what the driver confirmed.",
+      "map": "spa"
+    },
+    {
+      "name": "Circuit de la Sarthe",
+      "aliases": [
+        "sarthe",
+        "le mans"
+      ],
+      "length_m": 13626,
+      "expected_turns": 38,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "Indianapolis",
+        "Arnage"
+      ],
+      "map": "lemans"
+    },
+    {
+      "name": "Algarve International Circuit",
+      "aliases": [
+        "algarve",
+        "portimao"
+      ],
+      "length_m": 4653,
+      "expected_turns": 16,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "Some sources say 15; the game's own page says 16.",
+      "map": "portimao"
+    },
+    {
+      "name": "Sebring International Raceway",
+      "aliases": [
+        "sebring international"
+      ],
+      "length_m": 6019,
+      "expected_turns": 17,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "Full circuit. The short 'School Circuit' is a different, shorter layout and is not covered.",
+      "map": "sebring"
+    },
+    {
+      "name": "Bahrain International Circuit",
+      "aliases": [
+        "bahrain",
+        "sakhir"
+      ],
+      "length_m": 5412,
+      "expected_turns": 15,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "map": "bahrain"
+    },
+    {
+      "name": "Circuit de Barcelona-Catalunya",
+      "aliases": [
+        "barcelona",
+        "catalunya"
+      ],
+      "length_m": 4657,
+      "expected_turns": 14,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "Modern layout (final chicane removed in 2023).",
+      "map": "barcelona"
+    },
+    {
+      "name": "Circuit of the Americas",
+      "aliases": [
+        "americas",
+        "cota"
+      ],
+      "length_m": 5514,
+      "expected_turns": 20,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "map": "cota"
+    },
+    {
+      "name": "Daytona International Speedway",
+      "aliases": [
+        "daytona"
+      ],
+      "length_m": 5740,
+      "expected_turns": 13,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "Sports car road course, 3.56 mi."
+    },
+    {
+      "name": "Fuji Speedway",
+      "aliases": [
+        "fuji"
+      ],
+      "length_m": 4563,
+      "expected_turns": 16,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "map": "fuji"
+    },
+    {
+      "name": "Autodromo Enzo e Dino Ferrari",
+      "aliases": [
+        "imola",
+        "enzo e dino"
+      ],
+      "length_m": 4909,
+      "expected_turns": 19,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "Variante Tamburello",
+        "Variante Villeneuve",
+        "Tosa",
+        "Rivazza"
+      ],
+      "map": "imola"
+    },
+    {
+      "name": "Autodromo Jose Carlos Pace",
+      "aliases": [
+        "interlagos",
+        "jose carlos pace"
+      ],
+      "length_m": 4309,
+      "expected_turns": 15,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "Senna S"
+      ],
+      "note": "The page also gives 4.314 km.",
+      "map": "interlagos"
+    },
+    {
+      "name": "WeatherTech Raceway Laguna Seca",
+      "aliases": [
+        "laguna seca",
+        "laguna"
+      ],
+      "length_m": 3602,
+      "expected_turns": 11,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "Corkscrew"
+      ],
+      "map": "lagunaseca"
+    },
+    {
+      "name": "Long Beach Street Circuit",
+      "aliases": [
+        "long beach"
+      ],
+      "length_m": 3167,
+      "expected_turns": 11,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "Current configuration.",
+      "map": "longbeach"
+    },
+    {
+      "name": "Circuit Paul Ricard",
+      "aliases": [
+        "paul ricard",
+        "le castellet"
+      ],
+      "length_m": 5770,
+      "expected_turns": 13,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "Full layout without the Mistral chicane (the page also mentions an 828 m school circuit).",
+      "map": "paulricard"
+    },
+    {
+      "name": "Lusail International Circuit",
+      "aliases": [
+        "lusail",
+        "losail",
+        "qatar"
+      ],
+      "length_m": 5419,
+      "expected_turns": 16,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "note": "The page also gives 5.38 km; the Full GP circuit.",
+      "map": "lusail"
+    },
+    {
+      "name": "Road Atlanta",
+      "aliases": [
+        "road atlanta"
+      ],
+      "length_m": 4088,
+      "expected_turns": 12,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "The Esses",
+        "Turn 12"
+      ],
+      "note": "Grand Prix layout.",
+      "map": "roadatlanta"
+    },
+    {
+      "name": "Silverstone Circuit",
+      "aliases": [
+        "silverstone"
+      ],
+      "length_m": 5891,
+      "expected_turns": 18,
+      "confidence": "high",
+      "source": "lemansultimate.com circuit page (the game's official site), read 2026-11-18",
+      "named_corners_mentioned": [
+        "Copse",
+        "Maggotts-Becketts"
+      ],
+      "note": "Silverstone International (the Grand Prix layout).",
+      "map": "silverstone"
+    },
+    {
+      "name": "Bahrain International Circuit",
+      "aliases": [
+        "bahrain",
+        "sakhir"
+      ],
+      "length_m": 6299,
+      "expected_turns": 23,
+      "confidence": "medium",
+      "source": "Endurance layout, 6.299 km, 23 turns (Wikipedia, Tilke); not listed on the official site"
+    },
+    {
+      "name": "Circuit Paul Ricard",
+      "aliases": [
+        "paul ricard",
+        "le castellet"
+      ],
+      "length_m": 5842,
+      "expected_turns": 15,
+      "confidence": "medium",
+      "source": "Layout with the Mistral chicane (1C-V2), 5.842 km, 15 turns (Wikipedia); not listed on the official site"
+    }
+  ]
+}

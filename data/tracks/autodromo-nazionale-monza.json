@@ -1,0 +1,119 @@
+{
+ "track": "Autodromo Nazionale Monza",
+ "layout": "Autodromo Nazionale Monza",
+ "length_m": 5780.8,
+ "created": "2026-11-18T17:36:17",
+ "note": "Found automatically from your fastest lap. You can rename turns here or on the page. Delete this file to find the turns again.",
+ "turns": [
+  {
+   "number": 1,
+   "name": "Turn 1 (Rettifilo)",
+   "start_frac": 0.13153,
+   "apex_frac": 0.16265,
+   "end_frac": 0.16566,
+   "start_m": 760,
+   "apex_m": 940,
+   "end_m": 958
+  },
+  {
+   "number": 2,
+   "name": "Turn 2 (Rettifilo)",
+   "start_frac": 0.16566,
+   "apex_frac": 0.16968,
+   "end_frac": 0.17369,
+   "start_m": 958,
+   "apex_m": 981,
+   "end_m": 1004
+  },
+  {
+   "number": 3,
+   "name": "Turn 3 (Curva Grande)",
+   "start_frac": 0.21586,
+   "apex_frac": 0.2751,
+   "end_frac": 0.3012,
+   "start_m": 1248,
+   "apex_m": 1590,
+   "end_m": 1741
+  },
+  {
+   "number": 4,
+   "name": "Turn 4 (Roggia)",
+   "start_frac": 0.34639,
+   "apex_frac": 0.37048,
+   "end_frac": 0.3755,
+   "start_m": 2002,
+   "apex_m": 2142,
+   "end_m": 2171
+  },
+  {
+   "number": 5,
+   "name": "Turn 5 (Roggia)",
+   "start_frac": 0.3755,
+   "apex_frac": 0.37952,
+   "end_frac": 0.38655,
+   "start_m": 2171,
+   "apex_m": 2194,
+   "end_m": 2235
+  },
+  {
+   "number": 6,
+   "name": "Turn 6 (Lesmo 1)",
+   "start_frac": 0.42269,
+   "apex_frac": 0.44578,
+   "end_frac": 0.45783,
+   "start_m": 2443,
+   "apex_m": 2577,
+   "end_m": 2647
+  },
+  {
+   "number": 7,
+   "name": "Turn 7 (Lesmo 2)",
+   "start_frac": 0.48394,
+   "apex_frac": 0.499,
+   "end_frac": 0.50703,
+   "start_m": 2798,
+   "apex_m": 2885,
+   "end_m": 2931
+  },
+  {
+   "number": 8,
+   "name": "Turn 8 (Ascari)",
+   "start_frac": 0.66064,
+   "apex_frac": 0.68373,
+   "end_frac": 0.68775,
+   "start_m": 3819,
+   "apex_m": 3953,
+   "end_m": 3976
+  },
+  {
+   "number": 9,
+   "name": "Turn 9 (Ascari)",
+   "start_frac": 0.68775,
+   "apex_frac": 0.7008,
+   "end_frac": 0.70783,
+   "start_m": 3976,
+   "apex_m": 4051,
+   "end_m": 4092
+  },
+  {
+   "number": 10,
+   "name": "Turn 10 (Ascari)",
+   "start_frac": 0.70884,
+   "apex_frac": 0.71486,
+   "end_frac": 0.72791,
+   "start_m": 4098,
+   "apex_m": 4132,
+   "end_m": 4208
+  },
+  {
+   "number": 11,
+   "name": "Turn 11 (Parabolica)",
+   "start_frac": 0.86647,
+   "apex_frac": 0.89558,
+   "end_frac": 0.9508,
+   "start_m": 5009,
+   "apex_m": 5177,
+   "end_m": 5496
+  }
+ ]
+}

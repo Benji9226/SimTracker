@@ -1,0 +1,4 @@
+{
+  "_note": "telemetry_cleanup_days: telemetry session files in the game's Telemetry folder that have not been written to for this many days are deleted automatically (0 = never delete anything). Your saved laps are kept.",
+  "telemetry_cleanup_days": 30
+}

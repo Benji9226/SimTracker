@@ -1,0 +1,160 @@
+{
+ "track": "Bahrain International Circuit",
+ "layout": "Bahrain International Circuit",
+ "length_m": 5386.4,
+ "created": "2026-11-18T18:49:32",
+ "detected_turns": 13,
+ "note": "Found automatically from your fastest lap and checked against data/track_catalog.json. You can rename turns here or on the page. Delete this file to find the turns again.",
+ "turns": [
+  {
+   "number": 1,
+   "name": "Turn 1",
+   "start_frac": 0.1056,
+   "apex_frac": 0.1347,
+   "end_frac": 0.1444,
+   "start_m": 569,
+   "apex_m": 726,
+   "end_m": 778
+  },
+  {
+   "number": 2,
+   "name": "Turn 2",
+   "start_frac": 0.1444,
+   "apex_frac": 0.14871,
+   "end_frac": 0.1681,
+   "start_m": 778,
+   "apex_m": 801,
+   "end_m": 905
+  },
+  {
+   "number": 3,
+   "name": "Turn 3",
+   "start_frac": 0.17134,
+   "apex_frac": 0.1778,
+   "end_frac": 0.18642,
+   "start_m": 923,
+   "apex_m": 958,
+   "end_m": 1004
+  },
+  {
+   "number": 4,
+   "name": "Turn 4",
+   "start_frac": 0.25754,
+   "apex_frac": 0.28556,
+   "end_frac": 0.30496,
+   "start_m": 1387,
+   "apex_m": 1538,
+   "end_m": 1643
+  },
+  {
+   "number": 5,
+   "name": "Turn 5",
+   "start_frac": 0.3125,
+   "apex_frac": 0.33082,
+   "end_frac": 0.33405,
+   "start_m": 1683,
+   "apex_m": 1782,
+   "end_m": 1799
+  },
+  {
+   "number": 6,
+   "name": "Turn 6",
+   "start_frac": 0.33621,
+   "apex_frac": 0.34698,
+   "end_frac": 0.36207,
+   "start_m": 1811,
+   "apex_m": 1869,
+   "end_m": 1950
+  },
+  {
+   "number": 7,
+   "name": "Turn 7",
+   "start_frac": 0.3653,
+   "apex_frac": 0.37177,
+   "end_frac": 0.39224,
+   "start_m": 1968,
+   "apex_m": 2002,
+   "end_m": 2113
+  },
+  {
+   "number": 8,
+   "name": "Turn 8",
+   "start_frac": 0.40086,
+   "apex_frac": 0.42134,
+   "end_frac": 0.43427,
+   "start_m": 2159,
+   "apex_m": 2269,
+   "end_m": 2339
+  },
+  {
+   "number": 9,
+   "name": "Turn 9",
+   "start_frac": 0.46983,
+   "apex_frac": 0.4903,
+   "end_frac": 0.49677,
+   "start_m": 2531,
+   "apex_m": 2641,
+   "end_m": 2676
+  },
+  {
+   "number": 10,
+   "name": "Turn 10",
+   "start_frac": 0.49677,
+   "apex_frac": 0.50539,
+   "end_frac": 0.5194,
+   "start_m": 2676,
+   "apex_m": 2722,
+   "end_m": 2798
+  },
+  {
+   "number": 11,
+   "name": "Turn 11",
+   "start_frac": 0.61638,
+   "apex_frac": 0.64224,
+   "end_frac": 0.65409,
+   "start_m": 3320,
+   "apex_m": 3459,
+   "end_m": 3523
+  },
+  {
+   "number": 12,
+   "name": "Turn 12",
+   "start_frac": 0.65409,
+   "apex_frac": 0.66056,
+   "end_frac": 0.6778,
+   "start_m": 3523,
+   "apex_m": 3558,
+   "end_m": 3651
+  },
+  {
+   "number": 13,
+   "name": "Turn 13",
+   "start_frac": 0.68319,
+   "apex_frac": 0.70905,
+   "end_frac": 0.73815,
+   "start_m": 3680,
+   "apex_m": 3819,
+   "end_m": 3976
+  },
+  {
+   "number": 14,
+   "name": "Turn 14",
+   "start_frac": 0.74353,
+   "apex_frac": 0.75647,
+   "end_frac": 0.78017,
+   "start_m": 4005,
+   "apex_m": 4075,
+   "end_m": 4202
+  },
+  {
+   "number": 15,
+   "name": "Turn 15",
+   "start_frac": 0.88578,
+   "apex_frac": 0.90733,
+   "end_frac": 0.93534,
+   "start_m": 4771,
+   "apex_m": 4887,
+   "end_m": 5038
+  }
+ ]
+}

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimTracker – What to practise</title>
+<script src="/plotly.min.js"></script>
+<link rel="stylesheet" href="/common.css">
+<style>
+  main { padding:16px; display:grid; gap:16px; max-width:1100px; margin:0 auto; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
+  .tile { border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--panel); }
+  .tile b { display:block; font-size:22px; margin:2px 0; }
+  .tile span { color:var(--dim); font-size:12px; }
+  .good { color:var(--good); } .warn { color:var(--warn); }
+  .intro { color:var(--dim); line-height:1.5; margin:0; }
+  .focus-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; }
+  .focus { border:1px solid var(--warn); border-radius:8px; padding:14px; background:var(--panel); }
+  .focus .rank { color:var(--warn); font-size:12px; font-weight:600; }
+  .focus h3 { margin:4px 0 6px; font-size:17px; }
+  .focus .big { font-size:26px; font-weight:600; }
+  .focus .big small { font-size:12px; font-weight:400; color:var(--dim); }
+  .focus p { margin:8px 0 0; line-height:1.45; }
+  td.num, th.num { text-align:right; }
+  .banner { border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:8px 12px; font-size:13px; }
+  .small { font-size:12px; color:var(--dim); display:block; margin-bottom:8px; }
+  .help { color:var(--dim); font-size:13px; line-height:1.55; }
+  .help summary { cursor:pointer; color:var(--text); }
+  .help li { margin:4px 0; }
+  .detail { display:none; }
+  .show-detail .detail { display:table-cell; }
+</style>
+</head>
+<body>
+<header></header>
+<main>
+  <div id="msg">Loading…</div>
+  <div id="content" style="display:none; gap:16px">
+    <p class="intro" id="intro"></p>
+    <div>
+      <label class="small" style="margin:0"><input type="checkbox" id="useSaved" checked> Include my saved laps from other days</label>
+      <p class="intro" id="savedNote" style="font-size:12px;margin-top:4px"></p>
+      <p class="intro" id="trackCheck" style="font-size:12px;margin-top:4px"></p>
+    </div>
+    <div id="banner" class="banner" style="display:none"></div>
+    <div class="tiles" id="tiles"></div>
+
+    <div>
+      <h2 style="margin:0 0 8px">Your turns to work on first</h2>
+      <div class="focus-grid" id="focus"></div>
+      <p class="intro" style="margin-top:10px;font-size:12px">Each tip compares your fastest pass through that turn with your usual one, using only your own laps. It shows what was different when you were quickest. It can't tell you what the perfect technique is. Click a turn name to rename it.</p>
+    </div>
+
+    <div class="card">
+      <h2>Time you lose in each turn on a typical lap, compared with your best</h2>
+      <div id="chart" style="height:240px"></div>
+    </div>
+
+    <div class="card">
+      <h2>All turns, in track order</h2>
+      <label class="small"><input type="checkbox" id="details"> Show more details</label>
+      <div style="overflow-x:auto"><table id="turns"><thead><tr>
+        <th>Turn</th><th class="num">Your best</th><th class="num">Typical</th><th class="num">Lost per lap</th>
+        <th class="num detail">Best lap vs best</th><th class="num detail">Coasting</th><th class="num detail">Wait for full throttle</th><th class="num detail">Best was in</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <details class="help card">
+      <summary>What do these numbers mean?</summary>
+      <ul>
+        <li><b>Your best</b>: the fastest you've ever been through the turn on a clean lap.</li>
+        <li><b>Typical</b>: your average time through the turn.</li>
+        <li><b>Lost per lap</b>: typical minus best. This is time you can already do, but don't do every lap. It's the safest place to start.</li>
+        <li><b>Saved laps</b>: your personal best (and laps you saved) from other days count as extra tries at every turn. Turn the tick box off to see this session only.</li>
+        <li><b>Ideal lap</b>: your best time through every turn, added together. You've shown you can do each part, just not all in one lap.</li>
+        <li><b>Coasting</b>: seconds in the turn with neither throttle nor brake pressed. Some is normal. A lot usually means getting back on the power late.</li>
+        <li><b>Wait for full throttle</b>: how long after the slowest point you take to reach full throttle. Blank in the first half of a chicane.</li>
+      </ul>
+    </details>
+  </div>
+</main>
+<script src="/common.js"></script>
+<script>
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const lapT = s => { const m = Math.floor(s / 60); return m + ":" + (s - m * 60).toFixed(3).padStart(6, "0"); };
+const f = (v, d = 3) => v == null ? "–" : v.toFixed(d);
+
+let hasContent = false;
+async function loadSession(file) {
+  App.status("loading…");
+  try {
+    const d = await api("/api/turns?file=" + encodeURIComponent(file) + "&saved=" + ($("useSaved").checked ? 1 : 0));
+    $("msg").style.display = "none"; $("content").style.display = "grid"; hasContent = true;
+    render(d);
+    return true;
+  } catch (e) {
+    if (e.message.startsWith("Need at least")) {      // the session opened, but has no clean lap yet: say so instead of showing old numbers
+      hasContent = false;
+      $("content").style.display = "none"; $("msg").style.display = "block";
+      $("msg").textContent = "You need at least one clean lap (a full lap without a pit visit that the game counted) to see this page. Drive a lap and it will show up here.";
+      return true;
+    }
+    if (!hasContent) { $("msg").style.display = "block"; $("msg").textContent = "Could not load session: " + e.message; }
+    return false;                                      // otherwise keep showing what is there
+  } finally { App.status(""); }
+}
+
+const fromText = s => s.kind === "saved" ? `${s.saved_kind === "best" ? "saved personal best" : "saved lap"}, ${shortDate(s.date)}` : `lap ${s.lap}, this session`;
+
+function tip(t) {
+  const i = t.insight;
+  const src = t.best_from.kind === "saved" ? ` (a saved lap from ${shortDate(t.best_from.date)})` : "";
+  if (!i) return "Drive at least one more clean lap to see what is different in your fastest pass of this turn.";
+  const v = Math.abs(i.value), up = i.value > 0;
+  switch (i.kind) {
+    case "min_speed": return `In your fastest pass${src} you carried ${v.toFixed(0)} km/h ${up ? "more" : "less"} speed through the slowest part of the turn than usual.`;
+    case "exit_speed": return `In your fastest pass${src} you left the turn ${v.toFixed(0)} km/h ${up ? "faster" : "slower"} than usual.`;
+    case "brake_dist": return `In your fastest pass${src} you started braking about ${v.toFixed(0)} m ${up ? "earlier" : "later"} than usual.`;
+    case "coast": return up
+      ? `In your fastest pass${src} you spent ${v.toFixed(1)} s more with neither throttle nor brake pressed than usual. Easing off can be part of the fast way through a turn like this, so don't force the throttle.`
+      : `In your fastest pass${src} you spent ${v.toFixed(1)} s less with neither throttle nor brake pressed than usual.`;
+    default: return "Your passes through this turn are all very similar, so the time you lose here is small and spread out. Look at the other turns first.";
+  }
+}
+
+function render(d) {
+  $("intro").textContent = `This page looks at all ${d.n_session} of your clean laps in this session` +
+    (d.saved_used.length ? ` and ${d.saved_used.length} saved lap${d.saved_used.length === 1 ? "" : "s"} from other days` : "") +
+    `, and finds the turns where you have the most time to gain by being more consistent.`;
+  const tc = d.track_check;
+  $("trackCheck").textContent = tc ? tc.message : "";
+  $("trackCheck").style.color = tc && (tc.status === "short" || tc.status === "extra") ? "var(--warn)" : "";
+  $("savedNote").textContent = !$("useSaved").checked ? "Saved laps are left out, so this is this session only."
+    : d.saved_used.length ? "Saved laps included: " + d.saved_used.map(s => `${s.saved_kind === "best" ? "personal best" : "saved lap"} ${lapT(s.lap_time)} (${shortDate(s.date)})`).join(", ") + "."
+    : "No saved laps from other days yet, so there is nothing extra to include. Your personal best is saved automatically, and it will be included here from your next session.";
+  $("banner").style.display = d.n_laps < 5 ? "block" : "none";
+  $("banner").textContent = `You only have ${d.n_laps} clean lap${d.n_laps === 1 ? "" : "s"} to go on so far, so treat this as a rough guide. It gets more reliable with about 8–10 clean laps.`;
+  $("tiles").innerHTML = `
+    <div class="tile"><span>Your best lap</span><b class="num">${lapT(d.best_time)}</b><span>${fromText(d.best_from)}</span></div>
+    <div class="tile"><span>Your ideal lap</span><b class="num good">${lapT(d.ideal_time)}</b><span>your best time through every turn, added up</span></div>
+    <div class="tile"><span>Time you already have in you</span><b class="num good">${d.potential.toFixed(2)} s</b><span>per lap</span></div>`;
+
+  const turns = d.turns.filter(t => t.number != null);
+  const focus = turns.filter(t => t.focus).sort((a, b) => b.avg_loss - a.avg_loss);
+  $("focus").innerHTML = focus.length ? focus.map((t, i) => `
+    <div class="focus"><div class="rank">#${i + 1} to work on</div><h3><span class="rename" title="Click to rename" data-n="${t.number}" data-name="${esc(t.name)}">${esc(t.name)}</span></h3>
+      <div class="big">${t.avg_loss.toFixed(2)} s <small>lost on a typical lap</small></div>
+      <p>${tip(t)}</p></div>`).join("")
+    : `<div class="focus" style="border-color:var(--good)"><h3>Your laps are very consistent so far</h3><p>No turn stands out. Keep driving clean laps, or use the Compare laps page to look at your fastest lap in detail.</p></div>`;
+
+  $("turns").querySelector("tbody").innerHTML = d.turns.map(t => `
+    <tr><td>${t.number == null ? "Straights" : `<span class="rename" title="Click to rename" data-n="${t.number}" data-name="${esc(t.name)}">${esc(t.name)}</span>`}</td>
+      <td class="num">${f(t.best)}</td><td class="num">${f(t.avg)}</td>
+      <td class="num ${t.avg_loss > 0.05 ? "warn" : ""}">${f(t.avg_loss)}</td>
+      <td class="num detail">${f(t.lost_in_best_lap)}</td><td class="num detail">${f(t.coast)}</td><td class="num detail">${f(t.throttle_delay)}</td><td class="num detail">${t.best_from.kind === "saved" ? "saved lap" : "lap " + t.best_from.lap}</td></tr>`).join("");
+
+  Plotly.react("chart", [{
+    type: "bar", x: turns.map(t => "T" + t.number), y: turns.map(t => t.avg_loss),
+    text: turns.map(t => t.avg_loss.toFixed(2)), textposition: "outside", hovertext: turns.map(t => t.name),
+    hovertemplate: "%{hovertext}<br>%{y:.3f} s<extra></extra>",
+    marker: { color: turns.map(t => t.focus ? "#ffb84d" : "#4da3ff") },
+  }], { margin: { l: 50, r: 10, t: 10, b: 30 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+        font: { color: getComputedStyle(document.body).color }, hoverlabel: hoverStyle(),
+        yaxis: { title: "seconds", gridcolor: "rgba(128,128,128,.2)", range: [0, Math.max(0.05, ...turns.map(t => t.avg_loss)) * 1.25] } },
+        { responsive: true, displaylogo: false });
+}
+
+document.addEventListener("click", e => {
+  const el = e.target.closest(".rename");
+  if (el) renameTurn(+el.dataset.n, el.dataset.name, () => loadSession(App.file));
+});
+$("useSaved").onchange = () => App.file && loadSession(App.file);
+$("details").onchange = e => document.getElementById("turns").classList.toggle("show-detail", e.target.checked);
+App.start("turns", file => loadSession(file));
+</script>
+</body>
+</html>

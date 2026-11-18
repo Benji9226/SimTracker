@@ -1,0 +1,368 @@
+"""Local web dashboard for LMU laps.
+
+    python dashboard.py            then open http://localhost:8765 (opens automatically)
+
+Lists your sessions (newest first, refreshes itself), shows the laps, and lets you
+pick a reference lap and a comparison lap to plot speed/throttle/brake/steering/delta.
+"""
+from __future__ import annotations
+
+import json
+import re
+import threading
+import time
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import numpy as np
+
+from simtracker.analysis.consistency import turn_stats
+from simtracker.analysis.corners import corner_report
+from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map
+from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, grid_points, lap_on_grid, lap_summary
+from simtracker import catalog, settings
+from simtracker.paths import DATA_DIR, MAPS_DIR, WEB_DIR
+from simtracker.storage import profiles, saved_laps
+from simtracker.telemetry import cleanup
+from simtracker.telemetry.finder import find_telemetry_dir
+from simtracker.telemetry.info import car_model, read_info
+from simtracker.telemetry.loader import load_lmu_files
+from simtracker.telemetry.sessions import group_for, groups
+
+PORT = 8765
+FOLDER = find_telemetry_dir()
+_cache: dict[tuple, object] = {}
+_lock = threading.Lock()
+
+
+def _files(name: str) -> list[Path]:
+    """Files of the session `name` (a session can be several runs). Names only, no paths from the client."""
+    return [FOLDER / f for f in group_for(FOLDER, name)["files"]]
+
+
+def _df(name: str):
+    files = _files(name)
+    key = tuple((p.name, p.stat().st_mtime) for p in files)
+    with _lock:
+        if key not in _cache:
+            _cache.clear()                # keep only one session in memory
+            _cache[key] = load_lmu_files([str(p) for p in files])
+        return _cache[key]
+
+
+def _clean(a) -> list:
+    return [None if not np.isfinite(x) else round(float(x), 4) for x in np.asarray(a, float)]
+
+
+_last_cleanup: dict | None = None
+CLEANUP_LOG = DATA_DIR / "cleanup_log.txt"
+
+
+def run_cleanup() -> dict:
+    """Delete telemetry session files older than the number of days in data/settings.json (see telemetry/cleanup.py).
+
+    Before a session is deleted its laps are loaded once through api_laps, which checks its best clean lap
+    against your saved personal best, so a record is never lost just because you never opened that session."""
+    global _last_cleanup
+    days = int(settings.load().get("telemetry_cleanup_days") or 0)
+    result = cleanup.run(FOLDER, days, before_delete=lambda g: api_laps(g["id"])) if days > 0 else {
+        "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "days": 0, "deleted": [], "kept": [], "freed_bytes": 0}
+    _last_cleanup = result
+    lines = [f"{result['at']}  deleted {d['file']} ({d['bytes'] / 1048576:.1f} MB)" for d in result["deleted"]]
+    lines += [f"{result['at']}  kept {k['session']}: {k['reason']}" for k in result["kept"]]
+    if lines:
+        with CLEANUP_LOG.open("a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    return result
+
+
+def _cleanup_loop() -> None:
+    while True:                                  # once at start-up, then every day while the dashboard runs
+        try:
+            run_cleanup()
+        except Exception as e:                   # never let clean-up take the dashboard down
+            print("telemetry clean-up failed:", e)
+        time.sleep(24 * 3600)
+
+
+def api_status() -> dict:
+    days = int(settings.load().get("telemetry_cleanup_days") or 0)
+    now = cleanup.folder_summary(FOLDER)
+    last = _last_cleanup
+    return {"cleanup_days": days, "folder_files": now["files"], "folder_mb": round(now["bytes"] / 1048576, 1),
+            "last": None if not last else {"at": last["at"], "deleted": len(last["deleted"]),
+                                           "freed_mb": round(last["freed_bytes"] / 1048576, 1), "kept": len(last["kept"])}}
+
+
+def _map_dot(df, summary, clean, m) -> dict | None:
+    """Where each metre of the lap is on the map (so the page can show a dot), or None when that can't be told
+    (no GPS in the file, a map drawn as a filled band, or a poor fit)."""
+    shapes = m.get("shapes") or []
+    if len(shapes) != 1 or shapes[0]["kind"] != "stroke" or len(shapes[0]["rings"]) != 1:
+        return None
+    lap = int(clean["lap_time"].idxmin())
+    length = float(summary.loc[lap, "length_m"])
+    found = match_to_map(lap_xy(df, lap, length), np.array(shapes[0]["rings"][0], float))
+    if not found or found["rms"] > MAX_RMS:
+        return None
+    return {"length": round(length, 1), "rms": round(found["rms"], 4),
+            "points": [[round(float(x), 4), round(float(y), 4)] for x, y in found["points"]]}
+
+
+def api_trackmap(name: str) -> dict:
+    """The drawing of this session's track layout (from data/track_maps), or {"map": None}.
+
+    The circuit comes from the session's track name and lap length, via the catalog (so a short layout
+    of a circuit does not get the full circuit's drawing)."""
+    info = _info(name)["info"]
+    s = lap_summary(_df(name))
+    clean = s[s["complete"]]
+    if clean.empty:
+        return {"map": None}
+    entry = catalog.find(info.get("track", ""), float(clean["length_m"].median()))
+    slug = entry.get("map") if entry else None
+    if not slug or not re.fullmatch(r"[a-z0-9]+", slug):
+        return {"map": None}
+    try:
+        m = json.loads((MAPS_DIR / f"{slug}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"map": None}
+    m["dot"] = _map_dot(df=_df(name), summary=s, clean=clean, m=m)
+    return {"map": m}
+
+
+def api_sessions() -> list[dict]:
+    return [{"name": g["id"], "label": g["label"], "mtime": g["mtime"], "runs": g["runs"]}
+            for g in groups(FOLDER)[:50]]
+
+
+_info_cache: dict[tuple[str, float], dict] = {}
+
+
+def _info(name: str) -> dict:
+    p = _files(name)[-1]                  # car, setup and weather of the latest run
+    key = (p.name, p.stat().st_mtime)
+    with _lock:
+        if key not in _info_cache:
+            _info_cache.clear()
+            _info_cache[key] = read_info(str(p))
+        d = _info_cache[key]
+        if not d["info"]["car_model"]:   # results file may be written after the session starts
+            d["info"]["car_model"] = car_model(str(p), d["info"]["car"])
+        return d
+
+
+def _zones_for(name: str):
+    """Function giving the turns of this session's track (from its saved profile) for any lap grid."""
+    info = _info(name)["info"]
+    return lambda ref, length: profiles.zones_for(info, ref, length)
+
+
+def _lap_grid(df, summary, lap: int):
+    length = float(summary.loc[lap, "length_m"])
+    return lap_on_grid(df, lap, length, grid_points(length))
+
+
+def _auto_best(name: str, df, summary) -> dict:
+    """Keep your personal best for this track and car up to date (see saved_laps). Only laps that count."""
+    info = _info(name)["info"]
+    clean = summary[summary["complete"]]
+    if not info.get("track") or not (info.get("car_model") or info.get("car")):
+        return {"updated": False}
+    here = group_for(FOLDER, name)["id"]
+    best = next((r for r in saved_laps.list_saved(info) if r["kind"] == "best"), None)
+    if best and best["session"] == here and best["lap"] not in clean.index:
+        saved_laps.discard_best(info)                       # saved from a lap that does not count (e.g. track limits)
+        best = None
+    if clean.empty:
+        return {"updated": False}
+    lap = int(clean["lap_time"].idxmin())
+    lap_time = float(clean.loc[lap, "lap_time"])
+    if best and best["session"] == here and best["lap"] == lap:
+        if abs(best["lap_time"] - lap_time) > 0.0005 or not best.get("has_gear"):
+            saved_laps.refresh_best(info, here, lap, lap_time, _lap_grid(df, summary, lap))   # same lap: exact time, gear data
+        return {"updated": False, "lap_time": lap_time}
+    if best and lap_time >= best["lap_time"] - 0.0005:       # nothing faster: skip the resampling
+        return {"updated": False, "lap_time": best["lap_time"]}
+    return saved_laps.update_best(info, here, lap, lap_time, _lap_grid(df, summary, lap))
+
+
+def api_laps(name: str) -> dict:
+    df = _df(name)
+    s = lap_summary(df)
+    laps = [{"lap": int(i), "time": r.lap_time, "time_str": fmt_time(r.lap_time),
+             "top_speed": round(r.top_speed, 1), "pit": bool(r.pit), "complete": bool(r.complete),
+             "valid": bool(r.valid), "reason": r.reason}
+            for i, r in s.iterrows()]
+    full = sorted((l for l in laps if l["complete"]), key=lambda l: l["time"])
+    return {"laps": laps,
+            "ref": full[0]["lap"] if full else None,
+            "other": full[1]["lap"] if len(full) > 1 else None,
+            "pb": _auto_best(name, df, s)}
+
+
+def api_turns(name: str, include_saved: bool = True) -> dict:
+    """Consistency per turn. Saved laps from other sessions count as extra passes; this session's own
+    saved laps are skipped, because those laps are already part of the session."""
+    saved = []
+    if include_saved:
+        info, here = _info(name)["info"], group_for(FOLDER, name)["id"]
+        for meta in saved_laps.list_saved(info):
+            if meta.get("session") != here:
+                loaded = saved_laps.load_grid(info, meta["id"])
+                if loaded:
+                    saved.append(loaded)
+    r = turn_stats(_df(name), _zones_for(name), saved)
+    if not r:
+        return {"error": "Need at least one complete, clean lap (no pit visit)."}
+    r["track_check"] = profiles.track_check(_info(name)["info"])        # (the profile exists once turn_stats has run)
+    return r
+
+
+_TRACE = ("speed", "throttle", "brake", "steer", "gear")      # what the charts draw
+
+
+def api_compare(name: str, ref: str, other_lap: int) -> dict:
+    """Compare lap `other_lap` of this session with `ref`: a lap number of this session, or "saved:<id>"."""
+    df = _df(name)
+    saved = None
+    if ref.startswith("saved:"):
+        loaded = saved_laps.load_grid(_info(name)["info"], ref[len("saved:"):])
+        if not loaded:
+            raise ValueError("That saved lap no longer exists.")
+        saved, grid = loaded
+        ref_df, other, delta = compare_to_grid(df, other_lap, grid)
+        single = False
+    else:
+        ref_df, other, delta = compare_laps(df, int(ref), other_lap)
+        single = int(ref) == other_lap       # one lap on its own, nothing to compare against
+    zones = _zones_for(name)(ref_df, float(ref_df["dist"].iloc[-1]))
+    return {
+        "dist": _clean(ref_df["dist"]),
+        "delta": _clean(delta),
+        "ref": {c: _clean(ref_df[c]) for c in _TRACE if c in ref_df.columns},
+        "other": {c: _clean(other[c]) for c in _TRACE if c in other.columns},
+        "single": single,
+        "saved": saved,
+        "final_delta": round(float(delta.iloc[-1]), 3),
+        "corners": corner_report(ref_df, other, delta, zones),
+    }
+
+
+def api_saved(name: str) -> dict:
+    return {"items": saved_laps.list_saved(_info(name)["info"])}
+
+
+def api_save_lap(name: str, lap: int) -> dict:
+    df = _df(name)
+    s = lap_summary(df)
+    if lap not in s.index or not bool(s.loc[lap, "complete"]):
+        raise ValueError("Only clean laps can be saved (a full lap without a pit visit).")
+    saved = saved_laps.pin(_info(name)["info"], group_for(FOLDER, name)["id"], lap, float(s.loc[lap, "lap_time"]), _lap_grid(df, s, lap))
+    return {"saved": saved, **api_saved(name)}
+
+
+def api_delete_saved(name: str, rec_id: str) -> dict:
+    if not saved_laps.delete(_info(name)["info"], rec_id):
+        raise ValueError("Could not delete that lap. (Only laps you saved yourself can be deleted.)")
+    return api_saved(name)
+
+
+def api_rename_turn(name: str, number: int, new_name: str) -> dict:
+    if not profiles.rename_turn(_info(name)["info"], number, new_name):
+        raise ValueError("No such turn.")
+    return {"ok": True}
+
+
+STATIC = {   # URL -> (file in web/, content type)
+    "/": ("laps.html", "text/html; charset=utf-8"),
+    "/turns": ("turns.html", "text/html; charset=utf-8"),
+    "/common.js": ("common.js", "application/javascript"),
+    "/common.css": ("common.css", "text/css"),
+    "/plotly.min.js": ("plotly.min.js", "application/javascript"),
+}
+
+
+class Handler(BaseHTTPRequestHandler):
+    def _send(self, body: bytes, ctype: str, status: int = 200):
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")   # always serve the latest page code
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        q = {k: v[0] for k, v in parse_qs(u.query).items()}
+        try:
+            if u.path in STATIC:
+                fname, ctype = STATIC[u.path]
+                return self._send((WEB_DIR / fname).read_bytes(), ctype)
+            if u.path == "/api/sessions":
+                data = api_sessions()
+            elif u.path == "/api/trackmap":
+                data = api_trackmap(q["file"])
+            elif u.path == "/api/status":
+                data = api_status()
+            elif u.path == "/api/info":
+                data = _info(q["file"])
+            elif u.path == "/api/turns":
+                data = api_turns(q["file"], q.get("saved", "1") != "0")
+            elif u.path == "/api/laps":
+                data = api_laps(q["file"])
+            elif u.path == "/api/compare":
+                data = api_compare(q["file"], q["ref"], int(q["other"]))
+            elif u.path == "/api/saved":
+                data = api_saved(q["file"])
+            else:
+                return self._send(b"not found", "text/plain", 404)
+            self._send(json.dumps(data).encode(), "application/json")
+        except Exception as e:
+            self._send(json.dumps({"error": str(e)}).encode(), "application/json", 500)
+
+    def do_POST(self):
+        """Changes: save/delete a lap, rename a turn. Only accepted from this dashboard's own pages."""
+        try:
+            origin = self.headers.get("Origin")
+            if origin and origin not in (f"http://localhost:{PORT}", f"http://127.0.0.1:{PORT}"):
+                return self._send(b'{"error": "forbidden"}', "application/json", 403)
+            if "application/json" not in (self.headers.get("Content-Type") or ""):
+                return self._send(b'{"error": "expected JSON"}', "application/json", 415)
+            size = int(self.headers.get("Content-Length") or 0)
+            if size > 10_000:
+                return self._send(b'{"error": "too large"}', "application/json", 413)
+            body = json.loads(self.rfile.read(size) or b"{}")
+            path = urlparse(self.path).path
+            if path == "/api/saved/save":
+                data = api_save_lap(body["file"], int(body["lap"]))
+            elif path == "/api/saved/delete":
+                data = api_delete_saved(body["file"], str(body["id"]))
+            elif path == "/api/turns/rename":
+                data = api_rename_turn(body["file"], int(body["number"]), str(body.get("name", "")))
+            else:
+                return self._send(b"not found", "text/plain", 404)
+            self._send(json.dumps(data).encode(), "application/json")
+        except Exception as e:
+            self._send(json.dumps({"error": str(e)}).encode(), "application/json", 500)
+
+    def log_message(self, *a):            # keep the console quiet
+        pass
+
+
+def main():
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    url = f"http://localhost:{PORT}"
+    print(f"Reading sessions from {FOLDER}\nDashboard: {url}  (Ctrl+C to stop)")
+    threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    threading.Thread(target=_cleanup_loop, daemon=True).start()
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()
