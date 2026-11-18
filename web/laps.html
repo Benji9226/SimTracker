@@ -7,9 +7,9 @@
 <script src="/plotly.min.js"></script>
 <link rel="stylesheet" href="/common.css">
 <style>
-  main { display:grid; grid-template-columns: 340px 1fr; gap:16px; padding:16px; align-items:start; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  aside { display:grid; gap:16px; }
+  main { display:grid; grid-template-columns: minmax(0,340px) minmax(0,1fr); gap:16px; padding:16px; align-items:start; }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0,1fr); } }
+  aside { display:grid; gap:16px; min-width:0; }
   .scroll { overflow-y:auto; scrollbar-width:thin; }
   .scroll.laps { max-height:230px; }
   .scroll.turns { max-height:360px; }
@@ -35,7 +35,9 @@
   .help summary { cursor:pointer; color:var(--text); }
   .help li { margin:4px 0; }
   .caption { color:var(--dim); font-size:12px; margin:8px 0 0; }
-  #mapCard svg { display:block; width:100%; max-height:210px; }
+  #mapCard { min-width:0; overflow:hidden; }
+  #mapCard h2 { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #mapCard svg { display:block; width:100%; height:200px; overflow:visible; }
   .mapdot { fill:#ffb84d; stroke:var(--bg); stroke-width:2px; vector-effect:non-scaling-stroke; pointer-events:none; }
   .mapline { fill:none; stroke:var(--text); stroke-width:3.5px; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
   .mapfill { fill:var(--text); fill-rule:evenodd; stroke:var(--text); stroke-width:2px; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
@@ -57,7 +59,7 @@
     <div class="card">
       <h2>1 · Click a lap to check</h2>
       <div class="scroll laps"><table id="laps"><thead><tr><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
-      <label class="small"><input type="checkbox" id="showAll"> Also show laps that don't count (pit laps, unfinished laps, and laps the game marked invalid, such as track limits)</label>
+      <label class="small"><input type="checkbox" id="showAll"> Also show laps that don't count (out and pit laps, and laps with track limits). You can still compare them; they just never count as a best lap or in "What to practise".</label>
       <div class="row"><label for="target">Compare it against</label><select id="target"></select></div>
       <div class="row"><button class="btn" id="saveBtn">Save this lap</button><span class="small" id="saveMsg" style="margin:0"></span></div>
       <details class="help" style="margin-top:10px">
@@ -82,7 +84,7 @@
     <details class="help">
       <summary>How to read this page</summary>
       <ul>
-        <li><b>Clean lap</b>: a full lap that didn't go through the pit lane. Only clean laps can be compared or saved.</li>
+        <li><b>Clean lap</b>: a full lap that didn't go through the pit lane and that the game counted. Only clean laps can be saved, or count as a best lap. Other full laps (out laps, track limits) can still be compared: tick the box above the lap list.</li>
         <li><b>Time gap</b> (top chart): when the line goes up, the lap you're checking is falling behind the other lap. When it goes down, it's catching up.</li>
         <li><b>Brake</b> and <b>throttle</b>: if one lap brakes earlier, or gets back on the throttle later, you'll see it here.</li>
         <li><b>T1, T2 ...</b> along the top are the turns, so you can see which part of the track you're looking at.</li>
@@ -97,6 +99,7 @@ const S = { dot: null, chartLen: 0, file: null, laps: [], saved: [], target: nul
 const lapT = s => { const m = Math.floor(s / 60); return m + ":" + (s - m * 60).toFixed(3).padStart(6, "0"); };
 const lapInfo = n => S.laps.find(l => l.lap === n);
 const cleanLaps = () => S.laps.filter(l => l.complete);
+const comparableLaps = () => S.laps.filter(l => l.comparable);      // every full-length lap, also out laps and laps that did not count
 const isSaved = t => typeof t === "string";
 const savedInfo = t => S.saved.find(r => "saved:" + r.id === t);
 const savedName = r => (r.kind === "best" ? "personal best" : "saved lap");
@@ -115,12 +118,13 @@ function drawTrackMap(m) {
   if (!m || !m.shapes || !m.shapes.length) { card.hidden = true; return; }
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   m.shapes.forEach(s => s.rings.forEach(r => r.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); })));
-  const pad = 0.05;
-  const path = s => s.rings.map(r => "M" + r.map(p => p[0] + " " + p[1]).join("L") + (s.kind === "fill" ? "Z" : "")).join(" ");
-  $("mapBox").innerHTML = `<svg viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}" role="img" aria-label="Track layout of ${m.title}">` +
+  const pad = 0.08 * Math.max(x1 - x0, y1 - y0);      // room for the thick line and the dot, whatever the map's shape
+  const path = s => s.rings.map(r => "M" + r.map(p => p[0] + " " + p[1]).join("L") + "Z").join(" ");
+  $("mapBox").innerHTML = `<svg preserveAspectRatio="xMidYMid meet" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}" role="img" aria-label="Track layout of ${m.title}">` +
     m.shapes.map(s => `<path class="${s.kind === "fill" ? "mapfill" : "mapline"}" d="${path(s)}"/>`).join("") + (m.dot ? '<circle id="mapDot" class="mapdot" r="0.02" visibility="hidden"/>' : "") + "</svg>";
   S.dot = m.dot || null;
   $("mapTitle").textContent = "Track layout · " + m.title;
+  $("mapTitle").title = m.title;
   card.hidden = false;
   const dot = $("mapDot"), svg = $("mapBox").querySelector("svg");
   if (dot) dot.setAttribute("r", (6 * svg.viewBox.baseVal.width / svg.getBoundingClientRect().width).toFixed(5));   // about 6 px
@@ -153,7 +157,14 @@ function resetView() {                       // nothing from the previous sessio
 }
 
 function pickDefaults(d) {
-  S.target = d.ref;                                           // your best clean lap this session ...
+  if (d.ref == null) {                                        // no lap that counts yet: use the full laps that don't
+    const full = [...comparableLaps()].sort((a, b) => a.time - b.time), pb = S.saved.find(r => r.kind === "best");
+    S.target = pb ? "saved:" + pb.id : (full.length ? full[0].lap : null);
+    const others = full.filter(l => l.lap !== S.target);
+    S.check = others.length ? others[0].lap : (full.length ? full[0].lap : null);
+    return;
+  }
+  S.target = d.ref;                                          // your best clean lap this session ...
   const pb = S.saved.find(r => r.kind === "best"), mine = cleanLaps().find(l => l.lap === d.ref);
   if (pb && (!mine || pb.lap_time < mine.time - 0.0005)) S.target = "saved:" + pb.id;   // ... unless a faster one is saved
   const others = cleanLaps().filter(l => l.lap !== S.target).sort((a, b) => b.lap - a.lap);
@@ -161,7 +172,7 @@ function pickDefaults(d) {
 }
 
 async function loadSession(file, keep) {
-  App.status("loading…");
+  if (!keep && !App.pending) App.status("loading…");      // only when you opened a session yourself; background refreshes and retries stay silent
   try {
     // Read everything first. If this fails (for instance the game still has the new session's file locked)
     // nothing on screen has been touched, and the caller keeps showing the last session that worked.
@@ -174,7 +185,7 @@ async function loadSession(file, keep) {
     if (d.pb && d.pb.updated) { note.style.display = "block"; note.textContent = `New personal best saved: ${lapT(d.pb.lap_time)}`; }
     else if (!keep) note.style.display = "none";
     if (!keep) S.manual = false;
-    const clean = cleanLaps(), ok = n => clean.some(l => l.lap === n);
+    const full = comparableLaps(), ok = n => full.some(l => l.lap === n);
     const targetOk = isSaved(S.target) ? !!savedInfo(S.target) : ok(S.target);
     if (!S.manual || !targetOk || !ok(S.check)) pickDefaults(d);
     renderLaps(); renderSaved();
@@ -190,23 +201,26 @@ async function loadSession(file, keep) {
 function renderLaps() {
   const clean = cleanLaps();
   const best = clean.length ? Math.min(...clean.map(l => l.time)) : null;
-  const rows = S.laps.filter(l => l.complete || $("showAll").checked).sort((a, b) => b.lap - a.lap);
+  const rows = S.laps.filter(l => l.complete || $("showAll").checked || l.lap === S.check).sort((a, b) => b.lap - a.lap);
   $("laps").querySelector("tbody").innerHTML = rows.map(l => {
     const gap = l.complete && best != null && l.time !== best ? "+" + (l.time - best).toFixed(3) : "";
     const tag = l.complete && l.time === best ? '<span class="best-tag">best</span>' : (!l.complete ? ` <span class="pill" title="${l.reason === "invalid" ? "The game did not count this lap (for example track limits)" : l.reason === "pit" ? "Pit lane visit" : "Not a full lap"}">${l.reason}</span>` : "");
-    return `<tr class="${l.complete ? "pick" : "dim"} ${l.lap === S.check ? "sel" : ""}" data-lap="${l.lap}">
+    return `<tr class="${l.comparable ? "pick" : ""} ${l.complete ? "" : "dim"} ${l.lap === S.check ? "sel" : ""}" data-lap="${l.lap}" title="${l.comparable ? "" : "Not a full lap, so it can't be compared"}">
       <td>${l.lap}</td><td class="num">${lapT(l.time)}${tag}</td><td class="num">${gap}</td></tr>`;
   }).join("");
   document.querySelectorAll("#laps tr.pick").forEach(tr => tr.onclick = () => { S.check = +tr.dataset.lap; S.manual = true; renderLaps(); compare(); });
 
   const sess = [...clean].sort((a, b) => a.time - b.time).map(l =>
     `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)}${l.time === best ? " (best this session)" : ""}</option>`).join("");
+  const extra = [...S.laps.filter(l => l.comparable && !l.complete)].sort((a, b) => a.lap - b.lap).map(l =>
+    `<option value="${l.lap}">Lap ${l.lap} · ${lapT(l.time)} (${l.reason === "invalid" ? "did not count" : l.reason === "pit" ? "pit lap" : l.reason})</option>`).join("");
   const sv = S.saved.map(r => `<option value="saved:${r.id}">${savedTitle(r)}</option>`).join("");
-  $("target").innerHTML = (sess ? `<optgroup label="This session">${sess}</optgroup>` : "") + (sv ? `<optgroup label="Saved laps (any day)">${sv}</optgroup>` : "");
+  $("target").innerHTML = (sess ? `<optgroup label="This session">${sess}</optgroup>` : "") + (extra ? `<optgroup label="Laps that don't count">${extra}</optgroup>` : "") + (sv ? `<optgroup label="Saved laps (any day)">${sv}</optgroup>` : "");
   if (S.target != null) $("target").value = String(S.target);
 
   const c = lapInfo(S.check);
   $("saveBtn").disabled = !(c && c.complete);
+  $("saveBtn").title = c && !c.complete ? "Only laps that count can be saved" : "";
   $("saveBtn").textContent = c && c.complete ? `Save lap ${S.check} (${lapT(c.time)})` : "Save this lap";
 }
 
@@ -245,7 +259,7 @@ function showMsg(t) {
 }
 
 async function compare() {
-  if (S.target == null || S.check == null) return showMsg("You need at least one clean lap (a full lap without a pit visit) to start. Drive a lap and it will show up here.");
+  if (S.target == null || S.check == null) return showMsg("You need at least one full lap to start. Drive a lap and it will show up here. (Laps that don't count are shown when you tick the box above the lap list.)");
   showMsg("");
   let d;
   try { d = await api(`/api/compare?file=${encodeURIComponent(S.file)}&ref=${encodeURIComponent(S.target)}&other=${S.check}`); }

@@ -55,7 +55,10 @@ def lap_on_grid(df: pd.DataFrame, lap: int, length: float, n: int = 1000) -> pd.
     keep = np.r_[True, np.diff(dist) > 0]      # drop stationary samples (needed by interp)
     dist = dist[keep]
     grid = np.linspace(0, length, n)
-    out = {"dist": grid, "time": np.interp(grid, dist, (d["t"] - d["t"].iloc[0]).to_numpy()[keep])}
+    # Time since the start of the lap, counted in samples (like the lap time itself), so a gap in the recording,
+    # for instance between two runs when a lap spans a garage visit, does not add hours to the lap.
+    elapsed = np.arange(len(d)) * d["t"].diff().median()
+    out = {"dist": grid, "time": np.interp(grid, dist, elapsed[keep])}
     for c in CHANNELS:
         out[c] = np.interp(grid, dist, d[c].to_numpy()[keep])
     if "gear" in d.columns:                    # a gear is a whole number: take the gear you were in, don't blend two

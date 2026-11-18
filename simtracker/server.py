@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -31,7 +32,7 @@ from simtracker.telemetry import cleanup
 from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
 from simtracker.telemetry.info import car_model, read_info
 from simtracker.telemetry.loader import load_lmu_files
-from simtracker.telemetry.sessions import group_for, groups
+from simtracker.telemetry.sessions import facts, group_for, groups
 
 PORT = 8765
 FOLDER: Path = None          # the Telemetry folder, found when the dashboard starts (see main)
@@ -135,9 +136,98 @@ def api_trackmap(name: str) -> dict:
     return {"map": m}
 
 
-def api_sessions() -> list[dict]:
-    return [{"name": g["id"], "label": g["label"], "mtime": g["mtime"], "runs": g["runs"]}
-            for g in groups(FOLDER)[:50]]
+def _session_bytes(g: dict) -> int:
+    total = 0
+    for fn in g["files"]:
+        try:
+            total += (FOLDER / fn).stat().st_size
+        except OSError:
+            pass
+    return total
+
+
+_RECORDED = re.compile(r"(\d{4})-(\d\d)-(\d\d)T(\d\d)_(\d\d)_(\d\d)Z")
+
+
+def _label(g: dict) -> str:
+    """A readable name for a session: "Tue 18 Nov 20:28 · Le Mans · Practice · McLaren 720S LMGT3 Evo · 2 runs".
+
+    Built from what the file itself says (track, session type, car, when it started, in your own time zone).
+    Falls back to the file name for a file that can't be read."""
+    f = g.get("facts")
+    if not f:
+        return g["label"]
+    track, _layout, car, kind = f["who"]
+    parts = []
+    try:
+        first = facts(FOLDER / g["files"][0]) or f              # when the session STARTED (its first run)
+    except OSError:
+        first = f
+    m = _RECORDED.search(first["recorded"] or "") or _RECORDED.search(g["files"][0])
+    if m:
+        started = datetime(*map(int, m.groups()), tzinfo=timezone.utc).astimezone()
+        parts.append(f"{started:%a} {started.day} {started:%b} {started:%H:%M}")
+    if track:
+        parts.append(catalog.short_name(track))
+    if kind:
+        parts.append(kind)
+    model = car_model(str(FOLDER / g["files"][-1]), car or "") if car else ""
+    if model or car:
+        parts.append(model or car)
+    if g["runs"] > 1:
+        parts.append(f"{g['runs']} runs")
+    return " · ".join(parts)
+
+
+def api_sessions(everything: bool = False) -> list[dict]:
+    """Sessions, newest first. The picker shows the newest 50; the "Manage sessions" window asks for all of them."""
+    gs = groups(FOLDER)
+    return [{"name": g["id"], "label": _label(g), "mtime": g["mtime"], "runs": g["runs"], "bytes": _session_bytes(g)}
+            for g in (gs if everything else gs[:50])]
+
+
+def api_delete_sessions(names: list[str]) -> dict:
+    """Delete whole sessions (every run of each) from the game's Telemetry folder, on the user's request.
+
+    Same safeguards as the automatic clean-up: only *.duckdb files inside the Telemetry folder, names come from
+    the list of sessions (never a path from the page), your personal best is checked first so it is never lost,
+    and a file the game has open is left alone and reported."""
+    deleted, failed, freed = 0, [], 0
+    wanted = [str(n) for n in names][:1000]
+    by_id = {g["id"]: g for g in groups(FOLDER)}
+    for name in wanted:
+        g = by_id.get(Path(name).name)
+        if not g:
+            failed.append({"name": name, "reason": "not found (already deleted?)"})
+            continue
+        try:
+            api_laps(g["id"])                      # keeps your personal best up to date before the data goes away
+        except Exception:
+            pass                                   # unreadable file: nothing worth keeping in it
+        with _lock:
+            _cache.clear()
+            _info_cache.clear()
+        problem = None
+        for fn in g["files"]:
+            path = FOLDER / Path(fn).name
+            if path.suffix != ".duckdb" or path.parent != FOLDER:
+                continue
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                wal = path.with_name(path.name + ".wal")
+                if wal.is_file():
+                    wal.unlink()
+                freed += size
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                problem = e.strerror or str(e)
+        if problem:
+            failed.append({"name": _label(g), "reason": "could not be deleted: " + problem + " (is the game still using it?)"})
+        else:
+            deleted += 1
+    return {"deleted": deleted, "failed": failed, "freed_mb": round(freed / 1048576, 1)}
 
 
 _info_cache: dict[tuple[str, float], dict] = {}
@@ -196,7 +286,7 @@ def api_laps(name: str) -> dict:
     s = lap_summary(df)
     laps = [{"lap": int(i), "time": r.lap_time, "time_str": fmt_time(r.lap_time),
              "top_speed": round(r.top_speed, 1), "pit": bool(r.pit), "complete": bool(r.complete),
-             "valid": bool(r.valid), "reason": r.reason}
+             "valid": bool(r.valid), "reason": r.reason, "comparable": bool(r.length_ok)}
             for i, r in s.iterrows()]
     full = sorted((l for l in laps if l["complete"]), key=lambda l: l["time"])
     return {"laps": laps,
@@ -230,6 +320,10 @@ def api_compare(name: str, ref: str, other_lap: int) -> dict:
     """Compare lap `other_lap` of this session with `ref`: a lap number of this session, or "saved:<id>"."""
     df = _df(name)
     saved = None
+    summary = lap_summary(df)            # any full-length lap can be compared, also out laps and laps that did not count
+    for lap in ([] if ref.startswith("saved:") else [int(ref)]) + [other_lap]:
+        if lap not in summary.index or not bool(summary.loc[lap, "length_ok"]):
+            raise ValueError(f"Lap {lap} is not a full lap, so it can't be compared.")
     if ref.startswith("saved:"):
         loaded = saved_laps.load_grid(_info(name)["info"], ref[len("saved:"):])
         if not loaded:
@@ -304,7 +398,7 @@ class Handler(BaseHTTPRequestHandler):
                 fname, ctype = STATIC[u.path]
                 return self._send((WEB_DIR / fname).read_bytes(), ctype)
             if u.path == "/api/sessions":
-                data = api_sessions()
+                data = api_sessions(q.get("all") == "1")
             elif u.path == "/api/trackmap":
                 data = api_trackmap(q["file"])
             elif u.path == "/api/status":
@@ -334,7 +428,7 @@ class Handler(BaseHTTPRequestHandler):
             if "application/json" not in (self.headers.get("Content-Type") or ""):
                 return self._send(b'{"error": "expected JSON"}', "application/json", 415)
             size = int(self.headers.get("Content-Length") or 0)
-            if size > 10_000:
+            if size > 100_000:
                 return self._send(b'{"error": "too large"}', "application/json", 413)
             body = json.loads(self.rfile.read(size) or b"{}")
             path = urlparse(self.path).path
@@ -342,6 +436,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_save_lap(body["file"], int(body["lap"]))
             elif path == "/api/saved/delete":
                 data = api_delete_saved(body["file"], str(body["id"]))
+            elif path == "/api/sessions/delete":
+                data = api_delete_sessions(list(body.get("names") or []))
             elif path == "/api/turns/rename":
                 data = api_rename_turn(body["file"], int(body["number"]), str(body.get("name", "")))
             else:

@@ -41,3 +41,9 @@ def find(track: str, length_m: float | None) -> dict | None:
         if best is None or gap < best_gap:
             best, best_gap = entry, gap
     return best
+
+
+def short_name(track: str) -> str:
+    """Everyday name of a circuit ("Le Mans", "Monza"), or the game's own name when it is not in the catalog."""
+    entry = find(track, None)
+    return (entry or {}).get("short") or track

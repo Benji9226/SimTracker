@@ -21,6 +21,7 @@ const App = {
         <nav><a href="/" class="${page === "laps" ? "active" : ""}">Compare laps</a>
              <a href="/turns" class="${page === "turns" ? "active" : ""}">What to practise</a></nav>
         <select id="sessions"></select>
+        <button class="btn small-btn" id="manageBtn" title="Delete old telemetry sessions to free up space">Manage sessions…</button>
         <span class="pill" id="status"></span>
       </div>
       <div id="notice" class="notice" hidden></div>
@@ -33,6 +34,7 @@ const App = {
         : "Automatic telemetry clean-up is off.") + ` Telemetry folder: ${s.folder_files} files, ${s.folder_mb} MB.` + last;
     }).catch(() => {});
     $("sessions").onchange = e => App.choose(e.target.value, onSession);
+    $("manageBtn").onclick = () => Manage.open(() => App.refresh());
     const poll = async () => {
       const list = await api("/api/sessions");
       App.sessions = list;
@@ -48,7 +50,11 @@ const App = {
       App.known = sig;
       const sel = $("sessions");
       sel.innerHTML = list.map(s => `<option value="${s.name}">${s.label || s.name}</option>`).join("");
-      if (!list.length) { if ($("msg")) $("msg").textContent = "No sessions found."; return; }
+      if (!list.length) {
+        if (App.file) { try { sessionStorage.removeItem("simtracker.file"); } catch (e) {} location.reload(); return; }   // the last session was just deleted: start over
+        if ($("msg")) $("msg").textContent = "No sessions found. Drive a lap in the game and it will show up here.";
+        return;
+      }
       sel.value = App.file || list[0].name;
       let want = App.file;
       if (first) { try { want = sessionStorage.getItem("simtracker.file"); } catch (e) {} }
@@ -61,6 +67,7 @@ const App = {
       if (first || want !== App.file) await App.choose(want, onSession);
       else if (changed) await onSession(want, true);       // the session on screen grew: refresh it (if it can't be read right now, the old view stays)
     };
+    App.refresh = () => { App.known = ""; return poll().catch(() => {}); };      // look at the session list again right now
     poll().catch(e => App.status("Error: " + e.message));
     setInterval(() => poll().catch(() => {}), 5000);
   },
@@ -141,3 +148,79 @@ function hoverStyle() {
   const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   return { bgcolor: v("--panel"), bordercolor: v("--line"), font: { color: v("--text"), size: 13 }, namelength: -1 };   // namelength -1: never cut the lap name short
 }
+
+// "Manage sessions": a window to delete old telemetry sessions (every run of each) from the game's Telemetry folder.
+const Manage = {
+  rows: [],
+  async open(after) {
+    let dlg = $("manage");
+    if (!dlg) {
+      document.body.insertAdjacentHTML("beforeend", `<dialog id="manage">
+        <h3>Manage sessions</h3>
+        <p class="small">Tick the sessions you no longer need and delete them to free up disk space. Your personal best for each track and car is checked and kept first, and laps you saved are never touched. This can't be undone.</p>
+        <div class="mrow"><button class="btn small-btn" data-pick="old7">Tick older than 7 days</button>
+          <button class="btn small-btn" data-pick="old1">Tick older than 1 day</button>
+          <button class="btn small-btn" data-pick="all">Tick all but the newest</button>
+          <button class="btn small-btn" data-pick="none">Clear</button></div>
+        <div class="mlist"><table><tbody id="manageRows"></tbody></table></div>
+        <p class="small" id="manageMsg"></p>
+        <div class="mrow"><button class="btn danger" id="manageDelete" disabled>Delete ticked</button>
+          <button class="btn" id="manageClose">Close</button></div>
+      </dialog>`);
+      dlg = $("manage");
+      dlg.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => Manage.pick(b.dataset.pick));
+      $("manageClose").onclick = () => dlg.close();
+      $("manageDelete").onclick = () => Manage.remove();
+      $("manageRows").onchange = () => Manage.count();
+    }
+    Manage.after = after;
+    $("manageMsg").textContent = "";
+    dlg.showModal();
+    await Manage.load();
+  },
+
+  async load() {
+    try { Manage.rows = await api("/api/sessions?all=1"); }
+    catch (e) { $("manageMsg").textContent = "Could not read the session list: " + e.message; return; }
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    $("manageRows").innerHTML = Manage.rows.map((s, i) => {
+      const when = new Date(s.mtime * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      return `<tr><td><input type="checkbox" data-i="${i}" id="mc${i}"></td>
+        <td><label for="mc${i}">${esc(s.label)}${i === 0 ? ' <span class="pill">newest</span>' : ""}</label></td>
+        <td class="num pill">${when}</td><td class="num pill">${(s.bytes / 1048576).toFixed(1)} MB</td></tr>`;
+    }).join("") || '<tr><td class="small">No sessions in the Telemetry folder.</td></tr>';
+    Manage.count();
+  },
+
+  boxes() { return [...document.querySelectorAll("#manageRows input[type=checkbox]")]; },
+
+  pick(how) {
+    const now = Date.now() / 1000, days = how === "old7" ? 7 : how === "old1" ? 1 : 0;
+    Manage.boxes().forEach(b => {
+      const s = Manage.rows[+b.dataset.i];
+      b.checked = how === "none" ? false : +b.dataset.i > 0 && (how === "all" || s.mtime < now - days * 86400);
+    });
+    Manage.count();
+  },
+
+  count() {
+    const on = Manage.boxes().filter(b => b.checked);
+    const mb = on.reduce((t, b) => t + Manage.rows[+b.dataset.i].bytes, 0) / 1048576;
+    $("manageDelete").disabled = !on.length;
+    $("manageDelete").textContent = on.length ? `Delete ${on.length} session${on.length === 1 ? "" : "s"} (${mb.toFixed(1)} MB)` : "Delete ticked";
+  },
+
+  async remove() {
+    const names = Manage.boxes().filter(b => b.checked).map(b => Manage.rows[+b.dataset.i].name);
+    if (!names.length || !confirm(`Delete ${names.length} telemetry session${names.length === 1 ? "" : "s"} from disk? This can't be undone.`)) return;
+    $("manageDelete").disabled = true;
+    $("manageMsg").textContent = "Deleting…";
+    try {
+      const r = await apiPost("/api/sessions/delete", { names });
+      $("manageMsg").textContent = `Deleted ${r.deleted} session${r.deleted === 1 ? "" : "s"} (${r.freed_mb} MB freed).` +
+        (r.failed.length ? " Not deleted: " + r.failed.map(f => `${f.name} (${f.reason})`).join("; ") : "");
+    } catch (e) { $("manageMsg").textContent = "Could not delete: " + e.message; }
+    await Manage.load();
+    if (Manage.after) Manage.after();
+  },
+};

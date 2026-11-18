@@ -40,6 +40,21 @@ a track-limits penalty, so such a lap is marked *invalid*: it is never your best
 best, and left out of the comparisons and the practise numbers. Lap times are the game's own, so they match
 what you saw in the game. Everything is local: nothing is sent anywhere.
 
+**Comparing laps that don't count.** Tick *Also show laps that don't count* above the lap list to see out laps,
+pit laps and track-limits laps. You can still click one and compare it with any other lap (a corner may have been
+great in a lap that was thrown out). They only never count as a best lap, can't be saved, and are left out of
+*What to practise*. Only a lap that is not a full lap (the one you are still driving) cannot be compared.
+
+**Session names.** The picker names each session from what the file says, newest first: start time (your own time
+zone), circuit, session type, car, and how many runs it has, for example
+`Wed 18 Nov 20:28 · Le Mans · Practice · McLaren 720S LMGT3 Evo`. Everyday circuit names come from the `short` field in
+`data/track_catalog.json`; a circuit that is not in the catalog shows the game's own name.
+
+**Deleting sessions.** *Manage sessions…* (next to the session picker) lists every telemetry session in the game's
+folder with its size. Tick the ones you don't need (there are shortcuts for "older than 7 days" and "all but the
+newest") and delete them. Your personal best is checked and kept first, and laps you saved are never touched.
+A session the game still has open can't be deleted and is reported.
+
 ### Saved laps
 
 Your **personal best** for each track and car is saved automatically, and replaced whenever you set a faster

@@ -29,3 +29,13 @@ h2 { font-size:13px; color:var(--dim); margin:0 0 8px; font-weight:500; }
 #appFooter { margin-top:16px; padding:12px 16px; border-top:1px solid var(--line); color:var(--dim); font-size:12px; line-height:1.5; }
 .notice { margin-top:10px; padding:8px 12px; border:1px solid var(--warn); color:var(--warn); border-radius:8px; font-size:13px; line-height:1.45; }
 [hidden] { display:none !important; }
+.small-btn { padding:5px 9px; font-size:13px; }
+.btn.danger:not(:disabled) { border-color:var(--b); color:var(--b); }
+dialog#manage { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:16px; width:min(720px, 94vw); }
+dialog#manage::backdrop { background:rgba(0,0,0,.55); }
+dialog#manage h3 { margin:0 0 6px; font-size:16px; }
+#manage .small { font-size:12px; color:var(--dim); line-height:1.45; }
+#manage .mrow { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+#manage .mlist { max-height:50vh; overflow:auto; border:1px solid var(--line); border-radius:6px; }
+#manage .mlist td { padding:4px 8px; }
+#manage label { cursor:pointer; }
