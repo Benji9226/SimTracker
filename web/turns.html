@@ -81,12 +81,11 @@
 </main>
 <script src="/common.js"></script>
 <script>
-const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const lapT = s => { const m = Math.floor(s / 60); return m + ":" + (s - m * 60).toFixed(3).padStart(6, "0"); };
 const f = (v, d = 3) => v == null ? "–" : v.toFixed(d);
 
 let hasContent = false;
-async function loadSession(file) {
+async function loadSession(file, keep) {
   if (!keep && !App.pending) App.status("loading…");      // only when you opened a session yourself; background refreshes and retries stay silent
   try {
     const d = await api("/api/turns?file=" + encodeURIComponent(file) + "&saved=" + ($("useSaved").checked ? 1 : 0));
@@ -171,7 +170,7 @@ document.addEventListener("click", e => {
 });
 $("useSaved").onchange = () => App.file && loadSession(App.file);
 $("details").onchange = e => document.getElementById("turns").classList.toggle("show-detail", e.target.checked);
-App.start("turns", file => loadSession(file));
+App.start("turns", (file, keep) => loadSession(file, keep));
 </script>
 </body>
 </html>
