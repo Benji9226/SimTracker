@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import unicodedata
 
-from simtracker.paths import DATA_DIR
+from simtracker.paths import CATALOG_FILE
 
 LENGTH_TOLERANCE = 0.04      # your lap must be within 4% of the catalog length for the entry to apply
 
@@ -16,7 +16,7 @@ def _norm(text: str) -> str:
 
 def _load() -> list[dict]:
     try:
-        return json.loads((DATA_DIR / "track_catalog.json").read_text(encoding="utf-8")).get("tracks", [])
+        return json.loads(CATALOG_FILE.read_text(encoding="utf-8")).get("tracks", [])
     except (OSError, ValueError):
         return []
 

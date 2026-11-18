@@ -18,7 +18,7 @@ from pathlib import Path
 
 from simtracker.analysis.report import report
 from simtracker.paths import OUTPUT_DIR
-from simtracker.telemetry.finder import find_telemetry_dir, sessions
+from simtracker.telemetry.finder import TelemetryNotFound, find_telemetry_dir, sessions
 from simtracker.telemetry.info import read_info
 from simtracker.telemetry.loader import load_lmu_files
 from simtracker.telemetry.sessions import groups
@@ -66,7 +66,10 @@ def main() -> None:
 
     if a.file:
         return analyse(Path(a.file), a.laps)
-    folder = find_telemetry_dir()
+    try:
+        folder = find_telemetry_dir()
+    except TelemetryNotFound as e:
+        sys.exit(f"{e} Set LMU_TELEMETRY_DIR to the folder.")
     files = sessions(folder)
     if a.list:
         for g in groups(folder)[:15]:

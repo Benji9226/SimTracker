@@ -6,7 +6,7 @@ import re
 import shutil
 from pathlib import Path
 
-from simtracker.paths import DATA_DIR
+from simtracker.paths import CARS_FILE
 from simtracker.telemetry.loader import open_db
 
 _catalog: dict[str, str] = {}      # team entry (VehName) -> car model (CarType), from the game's own results
@@ -38,7 +38,7 @@ def _scan_results(results_dir: Path) -> None:
 def car_model(session_path: str, car_name: str) -> str:
     """Model for a team entry: manual overrides in cars.json first, then the game's results files."""
     try:
-        manual = json.loads((DATA_DIR / "cars.json").read_text(encoding="utf-8"))
+        manual = json.loads(CARS_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         manual = {}
     if car_name in manual:

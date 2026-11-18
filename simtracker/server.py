@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import re
+import socket
+import sys
 import threading
 import time
 import webbrowser
@@ -23,16 +25,16 @@ from simtracker.analysis.corners import corner_report
 from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map
 from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, grid_points, lap_on_grid, lap_summary
 from simtracker import catalog, settings
-from simtracker.paths import DATA_DIR, MAPS_DIR, WEB_DIR
+from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
 from simtracker.storage import profiles, saved_laps
 from simtracker.telemetry import cleanup
-from simtracker.telemetry.finder import find_telemetry_dir
+from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
 from simtracker.telemetry.info import car_model, read_info
 from simtracker.telemetry.loader import load_lmu_files
 from simtracker.telemetry.sessions import group_for, groups
 
 PORT = 8765
-FOLDER = find_telemetry_dir()
+FOLDER: Path = None          # the Telemetry folder, found when the dashboard starts (see main)
 _cache: dict[tuple, object] = {}
 _lock = threading.Lock()
 
@@ -352,9 +354,45 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def _already_running() -> bool:
+    """True when a SimTracker dashboard already answers on our port (double-clicked twice)."""
+    try:
+        with socket.create_connection(("127.0.0.1", PORT), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+def _stop_with(message: str) -> None:
+    print("\n" + message)
+    if FROZEN:                                   # the double-click program: keep the window open so the text can be read
+        try:
+            input("\nPress Enter to close this window.")
+        except EOFError:
+            pass
+    sys.exit(1)
+
+
 def main():
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    global FOLDER
     url = f"http://localhost:{PORT}"
+    if _already_running():
+        print(f"SimTracker is already running, opening {url}")
+        webbrowser.open(url)
+        return
+    try:
+        FOLDER = find_telemetry_dir()
+    except TelemetryNotFound:
+        FOLDER = ask_for_folder()
+        if FOLDER is None:
+            _stop_with("No Telemetry folder chosen.\n"
+                       "Start SimTracker again and pick the folder called Telemetry, inside the game's UserData folder\n"
+                       "(or set the LMU_TELEMETRY_DIR environment variable).")
+    try:
+        srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    except OSError as e:
+        _stop_with(f"Could not start on port {PORT}: {e}\nSomething else is using that port.")
+    print("SimTracker is running. Keep this window open while you use it; close it to stop.")
     print(f"Reading sessions from {FOLDER}\nDashboard: {url}  (Ctrl+C to stop)")
     threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     threading.Thread(target=_cleanup_loop, daemon=True).start()

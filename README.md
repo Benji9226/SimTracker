@@ -5,9 +5,28 @@ configure: the Telemetry folder is found automatically and new sessions appear o
 
 ## Run it
 
-    pip install duckdb pandas numpy matplotlib
+**The easy way (Windows):** double-click `SimTracker.exe`. A black window opens (leave it open while you
+use SimTracker, close it to stop) and the dashboard opens in your browser. Nothing to install. Your own files
+(saved laps, settings, track profiles) are kept in a `SimTracker data` folder next to the exe. To give it to a
+friend, send them just `SimTracker.exe`; they start with their own empty saved laps. Double-clicking it a
+second time just reopens the page.
+
+The Telemetry folder is found on its own, through Steam's own list of libraries, on any drive. If it ever
+can't be found, a window asks you to pick the folder once and it is remembered.
+
+Windows may show a *"Windows protected your PC"* warning the first time, because the exe is not signed.
+Click *More info*, then *Run anyway*.
+
+**From source:**
+
+    pip install duckdb pandas numpy            # (add matplotlib for the text report, tracker.py)
 
     python dashboard.py        # opens http://localhost:8765
+
+**Making the exe** (after changing the code):
+
+    pip install pyinstaller
+    python tools/build_exe.py          # writes dist/SimTracker.exe (about 60 MB)
 
 Two pages:
 
@@ -96,6 +115,7 @@ There is also a plain text version for the terminal:
     SimTracker/
     ├─ dashboard.py          start the web dashboard
     ├─ tracker.py            start the text report
+    ├─ dist/SimTracker.exe   the double-click program (made by tools/build_exe.py)
     │
     ├─ simtracker/           the Python code
     │  ├─ paths.py             where the folders below are
@@ -105,7 +125,7 @@ There is also a plain text version for the terminal:
     │  │  ├─ profiles.py         track profiles: where the turns are, and their names
     │  │  └─ saved_laps.py       personal best (automatic) and laps you save yourself
     │  ├─ telemetry/           getting data out of the game
-    │  │  ├─ finder.py           finds the Telemetry folder, lists files
+    │  │  ├─ finder.py           finds the Telemetry folder (Steam libraries), lists files
     │  │  ├─ loader.py           reads a .duckdb file into one table
     │  │  ├─ sessions.py         joins the files of one game session (the game starts a new file each run)
     │  │  ├─ cleanup.py          deletes old session files to save disk space
@@ -133,7 +153,7 @@ There is also a plain text version for the terminal:
     │  └─ config.json          written automatically: where your Telemetry folder is
     │
     ├─ demo/                 demo.py runs the analysis on made-up data
-    ├─ tools/                inspect_lmu.py prints the layout of a telemetry file
+    ├─ tools/                build_exe.py makes SimTracker.exe; inspect_lmu.py prints the layout of a telemetry file
     ├─ docs/                 lmu_schema.txt, the layout of a real LMU file
     └─ output/               pictures from the text report
 
