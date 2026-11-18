@@ -112,8 +112,11 @@ At the top left of **Compare laps** a card shows the layout of the circuit you'r
 colours. The drawings are stored in `data/track_maps/` (one small file per circuit), so nothing is fetched while the
 app runs. They were redrawn once from free maps on Wikimedia Commons; the authors and licences are listed in
 `data/track_maps/CREDITS.md` and shown under each map. The drawing is picked from the circuit and the length of your
-laps (through the track catalog), so a different layout of the same circuit shows no map instead of a wrong one.
-There is no map for Daytona, Bahrain's Endurance layout or Paul Ricard with the chicane.
+laps (through the track catalog), so a different layout of the same circuit never gets the wrong drawing.
+**When a layout has no drawing of its own** (the short Sebring School Circuit, Daytona, Bahrain's Endurance layout,
+a circuit added to the game later), the map is drawn from your own fastest clean lap's GPS positions instead: the
+shape is true, north is up, and the dot follows the lap exactly. It is made fresh each time (nothing is stored), and
+it appears as soon as you have one clean lap.
 
 **Hover dot**: when you move the mouse over the charts, a dot on the map shows where on the track that point of the
 lap is. To do this the app lays your lap's GPS shape (the game's own coordinates: not real-world ones, but the shape

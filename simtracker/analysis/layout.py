@@ -107,3 +107,21 @@ def _snap(aligned: np.ndarray, b_raw: np.ndarray, outline: np.ndarray, direction
         idx.append(j)
         last = j
     return dense[np.array(idx)]
+
+
+def outline_from_lap(xy: np.ndarray, smooth: int = 5) -> np.ndarray:
+    """The shape of a lap as a map outline: a closed line, north up, centred, its larger side 1 long.
+
+    Used for a track layout that has no drawing in data/track_maps (a short layout, a new circuit): the lap's own
+    GPS positions are the drawing. `xy` is lap_xy(...)."""
+    p = np.asarray(xy, float).copy()
+    k = max(1, smooth)
+    if k > 1:                                                # a little smoothing of the GPS noise, around the closed loop
+        ker = np.ones(k) / k
+        for c in range(2):
+            col = np.r_[p[-k:, c], p[:, c], p[:k, c]]
+            p[:, c] = np.convolve(col, ker, mode="same")[k:-k]
+    p[:, 1] *= -1                                            # the screen's y goes down, north is up
+    lo, hi = p.min(axis=0), p.max(axis=0)
+    p = (p - (lo + hi) / 2) / max(hi[0] - lo[0], hi[1] - lo[1], 1e-9)
+    return p
