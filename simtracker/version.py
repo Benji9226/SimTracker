@@ -5,6 +5,6 @@ release whose tag is the same number (for example v1.1.0) and attach dist/SimTra
 The program checks that release page when it starts; if the tag is higher than VERSION, a button
 "Update application" appears in the dashboard.
 """
-VERSION = "1.2.4"
+VERSION = "1.2.5"
 UPDATE_REPO = "Benji9226/SimTracker"      # github.com/<owner>/<name>: its latest release is what the update check looks at
 ASSET_NAME = "SimTracker.exe"             # the file to download from that release

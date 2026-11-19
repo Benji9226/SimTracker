@@ -88,6 +88,7 @@
   #tv .tvplay input[type=range] { flex:1; accent-color:var(--a); }
   #tv .tvplay .clock { font-variant-numeric:tabular-nums; color:var(--dim); font-size:13px; min-width:130px; text-align:right; }
   #tv .tvplay .btn { min-width:92px; }
+  #tv .tvplay .speedlab { color:var(--dim); font-size:13px; display:flex; gap:6px; align-items:center; }
 
   #tvSvg { flex:1; min-width:0; background:var(--bg); touch-action:none; cursor:grab; display:block; width:100%; height:100%; }
   #tvSvg.drag { cursor:grabbing; }
@@ -195,6 +196,9 @@
       </aside>
     </div>
     <div class="tvplay"><button class="btn" id="tvPlay" title="Play both laps in real time">&#9654; Play</button>
+      <label class="speedlab" title="How fast the laps play: 1x is real time">Speed <select id="tvSpeed">
+        <option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="0.75">0.75x</option>
+        <option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
       <input type="range" id="tvSlider" min="0" max="1000" value="0" aria-label="Position in the lap">
       <span class="clock" id="tvClock">0:00.0</span></div>
   </div>
@@ -766,7 +770,7 @@ const TV = {
 
 
   // ---------------------------------------------------------------- playback: both laps in real time, each at its own pace
-  play: { t: 0, on: false, raf: 0, last: 0 },
+  play: { t: 0, on: false, raf: 0, last: 0, speed: 1 },
 
   duration() {
     const d = TV.d; if (!d) return 0;
@@ -895,7 +899,7 @@ const TV = {
   tick(ts) {
     const P = TV.play, T = TV.duration();
     if (!P.on) return;
-    if (P.last) P.t += (ts - P.last) / 1000;
+    if (P.last) P.t += (ts - P.last) / 1000 * P.speed;
     P.last = ts;
     if (P.t >= T) { P.t = T; P.on = false; }
     TV.frame();
@@ -911,6 +915,8 @@ const TV = {
   init() {
     const svg = $("tvSvg");
     $("tvPlay").onclick = () => TV.playToggle();
+    try { const v = parseFloat(localStorage.getItem("simtracker.playSpeed")); if ([0.25, 0.5, 0.75, 1, 1.5, 2].includes(v)) { TV.play.speed = v; $("tvSpeed").value = String(v); } } catch (e) {}
+    $("tvSpeed").onchange = e => { TV.play.speed = parseFloat(e.target.value) || 1; try { localStorage.setItem("simtracker.playSpeed", String(TV.play.speed)); } catch (er) {} };
     $("tvSlider").oninput = e => { TV.play.t = e.target.value / 1000 * TV.duration(); TV.frame(); };
     $("tv").addEventListener("close", () => TV.stop());
     $("mapCard").addEventListener("click", () => TV.open());

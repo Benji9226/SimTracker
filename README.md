@@ -49,7 +49,7 @@ Two pages:
 | Page | What it is for |
 |------|----------------|
 | **Compare laps** | Click one of your laps and see how it differs from your best lap: time gap, speed, gear, throttle, brake and steering, plus how much time you gained or lost in each turn. |
-| **What to practise** | Looks at all your clean laps together: your *ideal lap* (best time through every turn added up) and the three turns where you lose the most time by being inconsistent. Your saved laps from other days count as extra tries at every turn (there's a tick box to leave them out). |
+| **What to practise** | Looks at your fastest clean laps together (the quickest 50%, at least 3, and never one slower than 120% of your best, so a spin or a slow lap can't spoil the numbers): your *ideal lap* (best time through every turn added up) and the three turns where you lose the most time by being inconsistent. Your saved laps from other days count as extra tries at every turn (there's a tick box to leave them out). |
 
 A *clean lap* is a full lap without a pit visit **that the game counted**. The game gives no lap time to a lap with
 a track-limits penalty, so such a lap is marked *invalid*: it is never your best lap, never saved as your personal
@@ -178,7 +178,7 @@ steering as a percentage of full lock), the brake and throttle pressure as bars,
 how much later the checked lap reaches the spot where the reference is right now (+0.47 s = behind the reference, shown in red;
 a minus sign and green = ahead). Pointing at a spot on the track shows the gap at that spot.
 **Click a panel to make the map follow that lap**: its dot stays in the middle and you keep your own zoom; click the panel
-again, or drag the map, to stop following. The slider jumps to any moment, and **Replay** starts again. When it is not
+again, or drag the map, to stop following. The slider jumps to any moment, **Speed** plays in slow motion or fast forward (0.25x, 0.5x, 0.75x, 1x, 1.5x, 2x; your choice is remembered), and **Replay** starts again. When it is not
 playing, pointing at the track shows the same panels for that spot. The *Steering* chart on the main page is now labelled
 in % too (it said degrees, but the game's number is a percentage of full lock).
 

@@ -7,6 +7,11 @@ import pandas as pd
 from simtracker.analysis.laps import grid_points, lap_on_grid, lap_summary
 
 
+FASTEST_SHARE = 0.50      # the share of your clean laps (fastest first) that the turn page uses
+MIN_LAPS = 3
+MAX_SLOWER = 1.20         # a lap slower than this times the best lap is never used
+
+
 def _insight(rows: list[dict], times: list[float]) -> dict | None:
     """What was different in your fastest pass through a turn, compared with your other passes.
 
@@ -82,6 +87,16 @@ def turn_stats(df: pd.DataFrame, zones_for, saved: list | None = None) -> dict |
         source[key] = {"kind": "saved", "saved_kind": meta["kind"], "lap": meta["lap"],
                        "lap_time": meta["lap_time"], "date": meta.get("date", "")}
         saved_used.append({"id": meta["id"], **{k: source[key][k] for k in ("saved_kind", "lap", "lap_time", "date")}})
+
+    # Only your fastest laps count: the quickest 50% (at least 3 laps) and never one slower than 120% of the best.
+    # A slow lap (a spin, traffic, the formation lap) would otherwise give nonsense best times and an impossible ideal lap.
+    by_time = sorted(keys, key=lambda k: source[k]["lap_time"])
+    quick = [k for k in by_time if source[k]["lap_time"] <= MAX_SLOWER * source[by_time[0]]["lap_time"]]
+    keep = set(quick[:max(MIN_LAPS, int(np.ceil(FASTEST_SHARE * len(quick))))])
+    keep.add(best_lap)                                      # this session's own best lap is always the reference
+    keys = [k for k in keys if k in keep]
+    saved_used = [s for s in saved_used if "saved:" + s["id"] in keep]
+    grids = {k: grids[k] for k in keys}
 
     per_lap = {}                      # lap -> per-turn measurements + straights time
     for lap, g in grids.items():
