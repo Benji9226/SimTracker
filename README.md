@@ -76,7 +76,12 @@ it only appears when you open a session on the same track. It is never counted a
 **same track, layout, car and session type**, even when the game was restarted in between. Practice, qualifying and race
 stay separate sessions. The laps of the runs are numbered one after another, so a day of practice is one list of laps.
 
-**Session names.** The picker names each session from what the file says, newest first: start time (your own time
+**Setups are saved with your best laps.** Your personal best for each track and car is saved together with the **setup** it was driven with (setup values only, no name or ID),
+and so are earlier bests and laps you save yourself. Old telemetry files are deleted after 30 days, but these saved laps are never touched, so the best lap and the setup that
+made it are still stored after a long break. Nothing in the dashboard shows the saved setups at the moment; they are kept so they are not lost. Bests saved before this existed
+get their setup filled in at start-up while their telemetry is still there; where the telemetry is already gone, the setup cannot be recovered.
+
+**Session names.** The picker (a dropdown that shows about 5 sessions and scrolls for the rest) names each session from what the file says, newest first: start time (your own time
 zone), circuit, session type, car, and how many runs it has, for example
 `Wed 18 Nov 20:28 · Le Mans · Practice · McLaren 720S LMGT3 Evo`. Everyday circuit names come from the `short` field in
 `data/track_catalog.json`; a circuit that is not in the catalog shows the game's own name.
@@ -238,6 +243,7 @@ There is also a plain text version for the terminal:
     │     ├─ reconcile.py        splits a turn that is probably two, when the official count says one is missing
     │     ├─ consistency.py      ideal lap and per-turn consistency
     │     └─ report.py           text report and picture
+    │  └─ setup/               reads the setup out of a telemetry file (saved with your best laps)
     │
     ├─ web/                  what you see in the browser
     │  ├─ laps.html            Compare laps page

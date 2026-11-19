@@ -12,6 +12,10 @@ whatever car either of you drove.
 
 A saved lap stores the lap on a distance grid (a point about every 5.8 m): elapsed time, speed,
 throttle, brake and steering, which is all the comparison needs.
+
+Your own laps (the personal best, earlier bests and laps you saved) also keep the SETUP the car was driven with, as plain values
+("setup": {"WM_PRESSURE-W_FL": ["136 kPa", 0], ...}). That is the setup book: when the old telemetry is cleaned up, the best lap still
+comes with the setup that made it. Only setup values are stored, never a name or an ID. Laps sent to a friend do not carry it.
 """
 from __future__ import annotations
 
@@ -67,8 +71,27 @@ def _write(path, rec: dict) -> None:
     os.replace(tmp, path)
 
 
-def _record(kind: str, rec_id: str, info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame) -> dict:
-    return {
+def compact_setup(setup: dict | None) -> dict | None:
+    """A setup (see setup/model.py) as small plain values: {key: [what the game shows, step number]}."""
+    if not setup:
+        return None
+    out = {}
+    for key, v in setup.items():
+        if isinstance(v, dict) and v.get("text") is not None:
+            out[str(key)[:60]] = [str(v["text"])[:60], v.get("index") if isinstance(v.get("index"), (int, float)) else None]
+    return out or None
+
+
+def expand_setup(compact: dict | None) -> dict:
+    out = {}
+    for key, v in (compact or {}).items():
+        if isinstance(v, (list, tuple)) and len(v) == 2:
+            out[key] = {"text": str(v[0]), "index": v[1], "min": None, "max": None}
+    return out
+
+
+def _record(kind: str, rec_id: str, info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame, setup: dict | None = None) -> dict:
+    rec = {
         "id": rec_id, "kind": kind, "track": info.get("track", ""), "layout": info.get("layout", ""),
         "car": info.get("car", ""), "car_model": info.get("car_model", ""), "car_class": info.get("car_class", ""),
         "session": session, "lap": int(lap), "lap_time": round(float(lap_time), 3),
@@ -76,6 +99,10 @@ def _record(kind: str, rec_id: str, info: dict, session: str, lap: int, lap_time
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "grid": {c: [round(float(x), 3) for x in grid[c]] for c in _CHANNELS if c in grid},
     }
+    packed = compact_setup(setup)
+    if packed:
+        rec["setup"] = packed
+    return rec
 
 
 def list_saved(info: dict) -> list[dict]:
@@ -86,7 +113,7 @@ def list_saved(info: dict) -> list[dict]:
             rec = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        out.append({**{k: rec[k] for k in _META if k in rec}, "has_gear": "gear" in rec["grid"], "has_line": "x" in rec["grid"]})
+        out.append({**{k: rec[k] for k in _META if k in rec}, "has_gear": "gear" in rec["grid"], "has_line": "x" in rec["grid"], "has_setup": bool(rec.get("setup"))})
     order = {"best": 0, "pinned": 1}
     return sorted(out, key=lambda r: (order.get(r["kind"], 2), r["lap_time"]))
 
@@ -103,7 +130,7 @@ def load_grid(info: dict, rec_id: str) -> tuple[dict, pd.DataFrame] | None:
     return {k: rec[k] for k in _META if k in rec}, pd.DataFrame(rec["grid"])
 
 
-def update_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame) -> dict:
+def update_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame, setup: dict | None = None) -> dict:
     """Save this lap as the personal best if it beats the stored one (or there is none)."""
     path = _dir(info) / "best.json"
     old = None
@@ -119,14 +146,14 @@ def update_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.Da
         stamp = re.sub(r"[^0-9]", "", old.get("saved_at", "")) or "old"
         shutil.move(str(path), str(hist / f"best-{old['lap_time']:.3f}s-{stamp}.json"))
         _trim_history(hist)
-    _write(path, _record("best", "best", info, session, lap, lap_time, grid))
+    _write(path, _record("best", "best", info, session, lap, lap_time, grid, setup))
     return {"updated": True, "lap_time": round(float(lap_time), 3), "previous": old["lap_time"] if old else None}
 
 
-def pin(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame) -> dict:
+def pin(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame, setup: dict | None = None) -> dict:
     """Save a lap yourself. Saving the same lap again just overwrites it."""
     rec_id = f"pin-{slug(session)}-lap{int(lap)}"[:120]
-    rec = _record("pinned", rec_id, info, session, lap, lap_time, grid)
+    rec = _record("pinned", rec_id, info, session, lap, lap_time, grid, setup)
     _write(_dir(info) / f"{rec_id}.json", rec)
     return {k: rec[k] for k in _META if k in rec}
 
@@ -148,7 +175,7 @@ def refresh(info: dict, rec_id: str, grid: pd.DataFrame) -> None:
     if not got:
         return
     meta, _ = got
-    rec = _record(meta["kind"], rec_id, info, meta["session"], meta["lap"], meta["lap_time"], grid)
+    rec = _record(meta["kind"], rec_id, info, meta["session"], meta["lap"], meta["lap_time"], grid, expand_setup(_raw(info, rec_id).get("setup")))
     rec["saved_at"], rec["date"] = meta.get("saved_at", rec["saved_at"]), meta.get("date", rec["date"])
     _write(_dir(info) / f"{rec_id}.json", rec)
 
@@ -164,9 +191,85 @@ def discard_best(info: dict) -> None:
     _trim_history(hist)
 
 
-def refresh_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame) -> None:
-    """Rewrite the personal best for the same lap (e.g. with the game's exact lap time), without archiving it."""
-    _write(_dir(info) / "best.json", _record("best", "best", info, session, lap, lap_time, grid))
+def refresh_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame, setup: dict | None = None) -> None:
+    """Rewrite the personal best for the same lap (e.g. with the game's exact lap time), without archiving it. A setup already stored is kept."""
+    keep = setup or expand_setup(_raw(info, "best").get("setup"))
+    _write(_dir(info) / "best.json", _record("best", "best", info, session, lap, lap_time, grid, keep))
+
+
+def _raw(info: dict, rec_id: str) -> dict:
+    try:
+        return json.loads((_dir(info) / f"{rec_id}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+# ------------------------------------------------------------------ the setup book
+_HISTORY_NAME = re.compile(r"^best-[A-Za-z0-9.\-]+\.json$")
+
+
+def list_history(info: dict) -> list[dict]:
+    """Earlier personal bests (newest first) with whether they kept their setup. `id` is the file name."""
+    out = []
+    folder = _dir(info) / "history"
+    for p in sorted(folder.glob("*.json"), key=lambda q: q.stat().st_mtime, reverse=True) if folder.is_dir() else []:
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out.append({**{k: rec[k] for k in _META if k in rec}, "id": p.name, "has_setup": bool(rec.get("setup"))})
+    return out
+
+
+def get_setup(info: dict, rec_id: str) -> dict:
+    """The setup stored with a saved lap ('best', a pinned lap id, or a history file name), as a setup dict; {} if none."""
+    if rec_id == "best" or _PIN_ID.match(rec_id):
+        return expand_setup(_raw(info, rec_id).get("setup"))
+    if _HISTORY_NAME.match(rec_id):
+        try:
+            return expand_setup(json.loads((_dir(info) / "history" / rec_id).read_text(encoding="utf-8")).get("setup"))
+        except (OSError, ValueError):
+            return {}
+    return {}
+
+
+def all_bests() -> list[dict]:
+    """Your personal best of every track and car (metadata only): used to estimate how long a setup test takes at your pace."""
+    out = []
+    for path in SAVED_DIR.glob("*/*/best.json") if SAVED_DIR.is_dir() else []:
+        try:
+            rec = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out.append({k: rec.get(k) for k in ("track", "layout", "car_class", "car_model", "lap_time")})
+    return out
+
+
+def best_files_without_setup():
+    """(path, record without its grid) of every personal best (and earlier best) that has no setup yet (to fill in from the telemetry that is still there)."""
+    out = []
+    for path in [*SAVED_DIR.glob("*/*/best.json"), *SAVED_DIR.glob("*/*/history/best-*.json")] if SAVED_DIR.is_dir() else []:
+        try:
+            rec = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not rec.get("setup"):
+            out.append((path, {k: rec.get(k) for k in _META}))
+    return out
+
+
+def add_setup(path, setup: dict) -> bool:
+    """Write a setup into an existing saved lap file (used to fill in the setup of laps saved before the setup book existed)."""
+    try:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    packed = compact_setup(setup)
+    if not packed:
+        return False
+    rec["setup"] = packed
+    _write(path, rec)
+    return True
 
 
 # ------------------------------------------------------------------ sharing laps with a friend

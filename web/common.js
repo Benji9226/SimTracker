@@ -8,6 +8,56 @@ async function api(path) {
   return j;
 }
 
+
+// The session picker: a dropdown that shows about 5 sessions and scrolls for the rest. The real <select id="sessions"> stays (hidden) as the
+// list the rest of the page code reads and sets; this draws it and passes clicks back to it.
+const Dd = {
+  ROWS: 5,
+  init() {
+    const sel = $("sessions"), proto = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    Object.defineProperty(sel, "value", { get() { return proto.get.call(this); }, set(v) { proto.set.call(this, v); Dd.sync(); } });
+    new MutationObserver(() => Dd.sync()).observe(sel, { childList: true });
+    $("ddBtn").onclick = e => { e.stopPropagation(); Dd.toggle(); };
+    $("ddList").onclick = e => {
+      const li = e.target.closest("li[data-v]");
+      if (!li) return;
+      Dd.toggle(false);
+      if (li.dataset.v !== sel.value) { sel.value = li.dataset.v; sel.dispatchEvent(new Event("change")); }
+    };
+    document.addEventListener("click", e => { if (!e.target.closest("#sessionDd")) Dd.toggle(false); });
+    document.addEventListener("keydown", e => {
+      if ($("ddList").hidden) return;
+      if (e.key === "Escape") { Dd.toggle(false); $("ddBtn").focus(); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+      e.preventDefault();
+      const items = [...$("ddList").querySelectorAll("li")];
+      let i = items.findIndex(x => x.classList.contains("hot"));
+      if (i < 0) i = items.findIndex(x => x.classList.contains("sel"));
+      if (e.key === "Enter") { if (items[i]) items[i].click(); return; }
+      i = Math.min(Math.max(i + (e.key === "ArrowDown" ? 1 : -1), 0), items.length - 1);
+      items.forEach(x => x.classList.remove("hot")); items[i].classList.add("hot"); items[i].scrollIntoView({ block: "nearest" });
+    });
+    Dd.sync();
+  },
+  sync() {
+    const sel = $("sessions"), list = $("ddList");
+    if (!list) return;
+    const opts = [...sel.options];
+    list.innerHTML = opts.map(o => `<li role="option" data-v="${esc(o.value)}" class="${o.value === sel.value ? "sel" : ""}" title="${esc(o.textContent)}">${esc(o.textContent)}</li>`).join("");
+    const cur = opts.find(o => o.value === sel.value) || opts[0];
+    $("ddLabel").textContent = cur ? cur.textContent : "No sessions";
+  },
+  toggle(force) {
+    const list = $("ddList"), open = force === undefined ? list.hidden : force;
+    list.hidden = !open;
+    $("ddBtn").setAttribute("aria-expanded", String(open));
+    if (open) {
+      const li = list.querySelector("li.sel");
+      if (li) list.scrollTop = Math.max(0, li.offsetTop - list.offsetTop - 4);
+    }
+  },
+};
+
 const App = {
   file: null,          // the session that is on screen (the last one that opened successfully)
   pending: null,       // a session that could not be opened yet (the game still has its file locked); retried
@@ -21,7 +71,11 @@ const App = {
         <h1>SimTracker</h1>
         <nav><a href="/" class="${page === "laps" ? "active" : ""}">Compare laps</a>
              <a href="/turns" class="${page === "turns" ? "active" : ""}">What to practise</a></nav>
-        <select id="sessions"></select>
+        <select id="sessions" hidden></select>
+        <div class="dd" id="sessionDd">
+          <button type="button" class="dd-btn" id="ddBtn" aria-haspopup="listbox" aria-expanded="false"><span id="ddLabel">Sessions…</span><span class="caret">▾</span></button>
+          <ul class="dd-list" id="ddList" role="listbox" hidden></ul>
+        </div>
         <button class="btn small-btn" id="manageBtn" title="Delete old telemetry sessions to free up space">Manage sessions…</button>
         <span class="pill" id="status"></span>
         <button class="btn small-btn primary" id="updateBtn" hidden></button>
@@ -36,6 +90,7 @@ const App = {
         : "Automatic telemetry clean-up is off.") + ` Telemetry folder: ${s.folder_files} files, ${s.folder_mb} MB.` + last;
     }).catch(() => {});
     $("sessions").onchange = e => App.choose(e.target.value, onSession);
+    Dd.init();
     $("manageBtn").onclick = () => Manage.open(() => App.refresh());
     Updates.start();
     const poll = async () => {

@@ -10,7 +10,8 @@ that have not been written to for `days` days, with these safeguards:
     saved personal best), and if it fails the session is kept;
   * a file that cannot be deleted (for example the game has it open) is left alone and reported.
 
-Your saved laps (data/saved_laps) live elsewhere and are never touched.
+Your saved laps (data/saved_laps) live elsewhere and are never touched. They carry the setup of the lap with them (the setup book),
+so the best lap and its setup outlive the telemetry that is deleted here.
 """
 from __future__ import annotations
 

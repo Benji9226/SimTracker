@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import socket
 import sys
 import threading
 import time
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -31,10 +32,11 @@ from simtracker.version import VERSION
 from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
 from simtracker.storage import profiles, saved_laps, surface
 from simtracker.storage.profiles import track_key
+from simtracker.setup import model as setup_model
 from simtracker.telemetry import cleanup
 from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
 from simtracker.telemetry.info import car_model, read_info
-from simtracker.telemetry.loader import load_lmu_files
+from simtracker.telemetry.loader import load_lmu_files, open_db
 from simtracker.telemetry.sessions import facts, group_for, groups
 
 PORT = 8765
@@ -102,6 +104,24 @@ def backfill_surface(limit: int = 60) -> int:
             continue
         time.sleep(0.5)                           # be gentle: this runs next to the game
     return added
+
+
+def backfill_best_setups() -> int:
+    """Once at start-up: give personal bests saved before the setup book the setup of their session, while that session's telemetry is
+    still there. A best whose session is already deleted cannot be filled in (its setup is gone). Returns how many were filled in."""
+    done = 0
+    try:
+        by_id = {g["id"]: g for g in groups(FOLDER)}
+        for path, meta in saved_laps.best_files_without_setup():
+            g = by_id.get(meta.get("session") or "")
+            if not g:
+                continue
+            setup = _lap_setup([FOLDER / f for f in g["files"]], float(meta["lap_time"]))
+            if setup and saved_laps.add_setup(path, setup):
+                done += 1
+    except Exception:
+        pass
+    return done
 
 
 def _cleanup_loop() -> None:
@@ -312,13 +332,14 @@ def _auto_best(name: str, df, summary) -> dict:
         return {"updated": False}
     lap = int(clean["lap_time"].idxmin())
     lap_time = float(clean.loc[lap, "lap_time"])
+    files = _files(name)
     if best and best["session"] == here and best["lap"] == lap:
-        if abs(best["lap_time"] - lap_time) > 0.0005 or not best.get("has_gear") or not best.get("has_line"):
-            saved_laps.refresh_best(info, here, lap, lap_time, _lap_grid(df, summary, lap))   # same lap: exact time, gear data
+        if abs(best["lap_time"] - lap_time) > 0.0005 or not best.get("has_gear") or not best.get("has_line") or not best.get("has_setup"):
+            saved_laps.refresh_best(info, here, lap, lap_time, _lap_grid(df, summary, lap), _lap_setup(files, lap_time))   # same lap: exact time, gear data, setup
         return {"updated": False, "lap_time": lap_time}
     if best and lap_time >= best["lap_time"] - 0.0005:       # nothing faster: skip the resampling
         return {"updated": False, "lap_time": best["lap_time"]}
-    return saved_laps.update_best(info, here, lap, lap_time, _lap_grid(df, summary, lap))
+    return saved_laps.update_best(info, here, lap, lap_time, _lap_grid(df, summary, lap), _lap_setup(files, lap_time))
 
 
 def api_laps(name: str) -> dict:
@@ -416,7 +437,8 @@ def api_save_lap(name: str, lap: int) -> dict:
     s = lap_summary(df)
     if lap not in s.index or not bool(s.loc[lap, "complete"]):
         raise ValueError("Only clean laps can be saved (a full lap without a pit visit).")
-    saved = saved_laps.pin(_info(name)["info"], group_for(FOLDER, name)["id"], lap, float(s.loc[lap, "lap_time"]), _lap_grid(df, s, lap))
+    saved = saved_laps.pin(_info(name)["info"], group_for(FOLDER, name)["id"], lap, float(s.loc[lap, "lap_time"]), _lap_grid(df, s, lap),
+                           _lap_setup(_files(name), float(s.loc[lap, "lap_time"])))
     return {"saved": saved, **api_saved(name)}
 
 
@@ -462,6 +484,71 @@ def api_rename_turn(name: str, number: int, new_name: str) -> dict:
     if not profiles.rename_turn(_info(name)["info"], number, new_name):
         raise ValueError("No such turn.")
     return {"ok": True}
+
+
+def _file_setup(path: Path) -> dict:
+    """The setup a telemetry file was driven with."""
+    con, tmp = open_db(str(path))
+    try:
+        row = con.execute("SELECT value FROM metadata WHERE key = 'CarSetup'").fetchone()
+    finally:
+        con.close()
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return setup_model.from_telemetry(row[0] if row else "")
+
+
+def _lap_setup(files: list[Path], lap_time: float) -> dict:
+    """The setup of the run that contains a lap with this time. A session can hold several runs with different setups, so with
+    more than one file the lap times of each run are compared; if none matches, the latest run's setup is used."""
+    try:
+        if len(files) == 1:
+            return _file_setup(files[0])
+        for p in reversed(files):
+            r = _run_info(p)
+            if r and any(abs(t - lap_time) < 0.002 for t in r["laps"]):
+                return r["setup"]
+        return _file_setup(files[-1])
+    except Exception:
+        return {}
+
+
+_run_cache: dict = {}
+_RECORDED_RE = re.compile(r"(\d{4})-(\d\d)-(\d\d)T(\d\d)_(\d\d)_(\d\d)Z")
+
+
+def _recorded_utc(f0: dict, name: str):
+    m = _RECORDED_RE.search((f0 or {}).get("recorded") or "") or _RECORDED_RE.search(name)
+    return datetime(*map(int, m.groups()), tzinfo=timezone.utc) if m else None
+
+
+def _run_info(p: Path) -> dict | None:
+    """One telemetry file as the setup test needs it: when it was recorded, its setup, and its clean lap times."""
+    st = p.stat()
+    key = (p.name, st.st_mtime, st.st_size)
+    if key in _run_cache:
+        return _run_cache[key]
+    out = None
+    try:
+        f0 = facts(p)
+        con, tmp = open_db(str(p))
+        try:
+            row = con.execute("SELECT value FROM metadata WHERE key = 'CarSetup'").fetchone()
+        finally:
+            con.close()
+            if tmp:
+                shutil.rmtree(tmp, ignore_errors=True)
+        sm = lap_summary(load_lmu_files([str(p)]))
+        laps = [float(x) for x in sm[sm["complete"]]["lap_time"]]
+        clean_len = sm[sm["complete"]]["length_m"]
+        out = {"name": p.name, "recorded": _recorded_utc(f0, p.name), "who": (f0 or {}).get("who"),
+               "setup": setup_model.from_telemetry(row[0] if row else ""), "laps": laps, "length": float(clean_len.median()) if len(clean_len) else None}
+    except Exception:
+        out = None
+    for k in [k for k in _run_cache if k[0] == p.name]:
+        del _run_cache[k]
+    _run_cache[key] = out
+    return out
 
 
 STATIC = {   # URL -> (file in web/, content type)
@@ -602,6 +689,7 @@ def main():
     updater.start_background()
     threading.Thread(target=_cleanup_loop, daemon=True).start()
     threading.Thread(target=backfill_surface, daemon=True).start()
+    threading.Thread(target=backfill_best_setups, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

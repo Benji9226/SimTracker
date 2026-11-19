@@ -43,3 +43,17 @@ dialog#manage h3 { margin:0 0 6px; font-size:16px; }
 .btn.primary { border-color:var(--a); }
 #updating { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; text-align:center; font-size:20px; z-index:50; color:#fff; line-height:1.6; }
 #updating span { font-size:14px; opacity:.8; }
+
+/* session dropdown: shows about 5 sessions, scrolls for the rest */
+.dd { position:relative; min-width:260px; max-width:min(560px, 100%); }
+.dd-btn { width:100%; display:flex; justify-content:space-between; gap:10px; align-items:center; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font:inherit; cursor:pointer; text-align:left; }
+.dd-btn:hover { border-color:var(--a); }
+.dd-btn #ddLabel { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dd-btn .caret { color:var(--dim); flex:none; }
+.dd-list { position:absolute; z-index:30; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(680px, 92vw); margin:0; padding:4px; list-style:none;
+  background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.35);
+  max-height:calc(5 * 34px + 8px); overflow-y:auto; overscroll-behavior:contain; }
+.dd-list[hidden] { display:none; }
+.dd-list li { height:34px; line-height:34px; padding:0 10px; border-radius:6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dd-list li:hover, .dd-list li.hot { background:var(--bg); }
+.dd-list li.sel { color:var(--a); font-weight:600; }
