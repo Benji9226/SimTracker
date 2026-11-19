@@ -28,7 +28,7 @@ import pandas as pd
 from simtracker.paths import SAVED_DIR
 from simtracker.storage.profiles import slug, track_key
 
-_CHANNELS = ("dist", "time", "speed", "throttle", "brake", "steer", "gear")    # gear is missing on laps saved before it was added
+_CHANNELS = ("dist", "time", "speed", "throttle", "brake", "steer", "gear", "x", "y", "lateral", "edge")   # gear, then the racing line, are missing on laps saved before they were added
 _PIN_ID = re.compile(r"^pin-[a-z0-9-]+$")
 _FRIEND_ID = re.compile(r"^friend-[a-f0-9]{10}$")
 _META = ("id", "kind", "track", "layout", "car", "car_model", "car_class", "session", "lap", "lap_time",
@@ -46,6 +46,18 @@ def _dir(info: dict):
 
 def _friends_dir(info: dict):
     return SAVED_DIR / track_key(info) / "_friends"
+
+
+HISTORY_KEEP = 10          # replaced personal bests kept per track and car; older ones are deleted
+
+
+def _trim_history(hist) -> None:
+    files = sorted((p for p in hist.glob("*.json")), key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in files[HISTORY_KEEP:]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
 
 
 def _write(path, rec: dict) -> None:
@@ -74,7 +86,7 @@ def list_saved(info: dict) -> list[dict]:
             rec = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        out.append({**{k: rec[k] for k in _META if k in rec}, "has_gear": "gear" in rec["grid"]})
+        out.append({**{k: rec[k] for k in _META if k in rec}, "has_gear": "gear" in rec["grid"], "has_line": "x" in rec["grid"]})
     order = {"best": 0, "pinned": 1}
     return sorted(out, key=lambda r: (order.get(r["kind"], 2), r["lap_time"]))
 
@@ -106,6 +118,7 @@ def update_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.Da
         hist.mkdir(parents=True, exist_ok=True)
         stamp = re.sub(r"[^0-9]", "", old.get("saved_at", "")) or "old"
         shutil.move(str(path), str(hist / f"best-{old['lap_time']:.3f}s-{stamp}.json"))
+        _trim_history(hist)
     _write(path, _record("best", "best", info, session, lap, lap_time, grid))
     return {"updated": True, "lap_time": round(float(lap_time), 3), "previous": old["lap_time"] if old else None}
 
@@ -148,6 +161,7 @@ def discard_best(info: dict) -> None:
     hist = path.parent / "history"
     hist.mkdir(parents=True, exist_ok=True)
     shutil.move(str(path), str(hist / f"best-discarded-{datetime.now().strftime('%Y%m%d%H%M%S')}.json"))
+    _trim_history(hist)
 
 
 def refresh_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.DataFrame) -> None:
@@ -157,6 +171,7 @@ def refresh_best(info: dict, session: str, lap: int, lap_time: float, grid: pd.D
 
 # ------------------------------------------------------------------ sharing laps with a friend
 _REQUIRED = ("dist", "time", "speed", "throttle", "brake", "steer")
+_LINE = ("x", "y", "lateral", "edge")      # the racing line (optional: laps from older versions have none)
 _MAX_POINTS = 5000
 _UNSAFE = re.compile(r"[\x00-\x1f\x7f<>&\"'`]")
 
@@ -207,7 +222,7 @@ def import_lap(data: object) -> dict:
         raise ValueError("The lap file is incomplete.")
     clean: dict[str, list[float]] = {}
     n = None
-    for c in (*_REQUIRED, "gear"):
+    for c in (*_REQUIRED, "gear", *_LINE):
         if c not in grid:
             continue
         col = grid[c]
@@ -220,6 +235,8 @@ def import_lap(data: object) -> dict:
             raise ValueError("The lap file contains something that is not a number.") from None
         if not all(math.isfinite(v) for v in vals):
             raise ValueError("The lap file contains something that is not a number.")
+        if c in _LINE and any(abs(v) > 5e6 for v in vals):
+            raise ValueError("The lap file's racing line is not believable.")
         clean[c] = vals
     try:
         lap_time, length = round(float(data["lap_time"]), 3), round(float(data["length_m"]), 1)

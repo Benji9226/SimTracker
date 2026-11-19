@@ -25,3 +25,5 @@ The app never goes online: these are the only copies it uses.
 | silverstone.json | Silverstone Circuit | AlexJ | [CC0 1.0 (public domain)](https://creativecommons.org/publicdomain/zero/1.0/) | [Circuit_Silverstone_2011.svg](https://commons.wikimedia.org/wiki/File:Circuit_Silverstone_2011.svg) |
 
 Daytona has no map yet (none could be downloaded).
+
+COTA, Paul Ricard and Road Atlanta were drawn by their authors as a thin filled outline of the road; here they are redrawn as the centre line of that outline, like the other maps.

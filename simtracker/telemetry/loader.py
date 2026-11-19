@@ -133,6 +133,8 @@ def _load(con) -> pd.DataFrame:
         "gear": step_value("Gear").astype(int) if "Gear" in tables else 0,
         "lat": on_time_base(GPS_LAT_CHANNEL) if GPS_LAT_CHANNEL in tables else np.nan,
         "lon": on_time_base(GPS_LON_CHANNEL) if GPS_LON_CHANNEL in tables else np.nan,
+        "lateral": on_time_base("Path Lateral") if "Path Lateral" in tables else np.nan,     # metres left/right of the track's centre line
+        "edge": on_time_base("Track Edge") if "Track Edge" in tables else np.nan,            # where the track edge is, in the same metres
         "in_pits": step_value("In Pits").astype(int) if "In Pits" in tables else 0,
         "lap_time_game": official_lap_times(),
         "game_times": 1.0 if "Lap Time" in tables else 0.0,        # 0: this file has no official lap times at all
@@ -145,10 +147,27 @@ def _load(con) -> pd.DataFrame:
     return df
 
 
-def load_lmu_files(paths: list[str]) -> pd.DataFrame:
+def load_lmu_files(paths: list[str], links: list[bool] | None = None) -> pd.DataFrame:
     """Load every run (file) of one game session and join them into one DataFrame.
 
     The game keeps one session clock and one lap counter across files, so the rows just
     follow each other. A lap that spans a run boundary (e.g. a pit stay) ends up as one lap."""
     frames = [load_lmu(p) for p in paths]
-    return frames[0] if len(frames) == 1 else pd.concat(frames, ignore_index=True).sort_values("t", kind="stable", ignore_index=True)
+    if len(frames) == 1:
+        return frames[0]
+    # links[i] says whether file i + 1 carries on from file i (same lap counter and clock). A file that starts over (links
+    # False, for example after the game was restarted) has its lap numbers and its clock moved to after the earlier files,
+    # so laps of different runs never get the same number.
+    links = list(links) if links is not None else [True] * (len(frames) - 1)
+    out = [frames[0]]
+    t_end, lap_max = float(frames[0]["t"].iloc[-1]), int(frames[0]["lap"].max())
+    for fr, carries_on in zip(frames[1:], links):
+        if not carries_on:
+            fr = fr.copy()
+            if float(fr["t"].iloc[0]) <= t_end + 1.0:
+                fr["t"] = fr["t"] + (t_end + 5.0 - float(fr["t"].iloc[0]))
+            if int(fr["lap"].min()) <= lap_max:
+                fr["lap"] = fr["lap"] + (lap_max + 1 - int(fr["lap"].min()))
+        out.append(fr)
+        t_end, lap_max = max(t_end, float(fr["t"].iloc[-1])), max(lap_max, int(fr["lap"].max()))
+    return pd.concat(out, ignore_index=True).sort_values("t", kind="stable", ignore_index=True)

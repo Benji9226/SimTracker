@@ -50,4 +50,5 @@ CATALOG_FILE = BUILTIN_DATA / "track_catalog.json"
 CARS_FILE = BUILTIN_DATA / "cars.json"        # edit this one to add a car the game does not name
 MAPS_DIR = BUILTIN_DATA / "track_maps"        # the track layout drawings (and their credits)
 TRACKS_DIR = DATA_DIR / "tracks"              # one profile per track: where its turns are, and what they are called
+SURFACE_DIR = DATA_DIR / "track_surface"       # what is known of each track's surface, built up lap by lap
 SAVED_DIR = DATA_DIR / "saved_laps"           # your saved laps, per track and car

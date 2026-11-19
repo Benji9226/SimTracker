@@ -23,12 +23,13 @@ import numpy as np
 
 from simtracker.analysis.consistency import turn_stats
 from simtracker.analysis.corners import corner_report
+from simtracker.analysis.edges import track_edges
 from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map, outline_from_lap
 from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, grid_points, lap_on_grid, lap_summary
 from simtracker import catalog, settings, updater
 from simtracker.version import VERSION
 from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
-from simtracker.storage import profiles, saved_laps
+from simtracker.storage import profiles, saved_laps, surface
 from simtracker.storage.profiles import track_key
 from simtracker.telemetry import cleanup
 from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
@@ -47,13 +48,17 @@ def _files(name: str) -> list[Path]:
     return [FOLDER / f for f in group_for(FOLDER, name)["files"]]
 
 
+def _links(name: str) -> list[bool]:
+    return group_for(FOLDER, name)["links"]
+
+
 def _df(name: str):
     files = _files(name)
     key = tuple((p.name, p.stat().st_mtime) for p in files)
     with _lock:
         if key not in _cache:
             _cache.clear()                # keep only one session in memory
-            _cache[key] = load_lmu_files([str(p) for p in files])
+            _cache[key] = load_lmu_files([str(p) for p in files], _links(name))
         return _cache[key]
 
 
@@ -81,6 +86,22 @@ def run_cleanup() -> dict:
         with CLEANUP_LOG.open("a", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
     return result
+
+
+def backfill_surface(limit: int = 60) -> int:
+    """Teach the track surface (storage/surface.py) from the sessions already in the Telemetry folder, newest first, once at
+    start-up. Sessions that cannot be read right now (the game has the file open) are skipped; laps already used are not
+    counted again. Returns how many laps were added."""
+    added = 0
+    for g in groups(FOLDER)[:limit]:
+        try:
+            df = load_lmu_files([str(FOLDER / f) for f in g["files"]], g["links"])
+            info = read_info(str(FOLDER / g["files"][-1]))["info"]
+            added += surface.update(info, g["id"], df, lap_summary(df))
+        except Exception:
+            continue
+        time.sleep(0.5)                           # be gentle: this runs next to the game
+    return added
 
 
 def _cleanup_loop() -> None:
@@ -150,6 +171,8 @@ def api_trackmap(name: str) -> dict:
     if m is None:                                  # no drawing for this layout: draw it from the lap itself
         return {"map": _gps_map(_df(name), s, clean, info)}
     m["dot"] = _map_dot(df=_df(name), summary=s, clean=clean, m=m)
+    if m["dot"] is None:                           # the lap does not fit this drawing: draw the layout from the lap itself
+        m = _gps_map(_df(name), s, clean, info) or m
     return {"map": m}
 
 
@@ -290,7 +313,7 @@ def _auto_best(name: str, df, summary) -> dict:
     lap = int(clean["lap_time"].idxmin())
     lap_time = float(clean.loc[lap, "lap_time"])
     if best and best["session"] == here and best["lap"] == lap:
-        if abs(best["lap_time"] - lap_time) > 0.0005 or not best.get("has_gear"):
+        if abs(best["lap_time"] - lap_time) > 0.0005 or not best.get("has_gear") or not best.get("has_line"):
             saved_laps.refresh_best(info, here, lap, lap_time, _lap_grid(df, summary, lap))   # same lap: exact time, gear data
         return {"updated": False, "lap_time": lap_time}
     if best and lap_time >= best["lap_time"] - 0.0005:       # nothing faster: skip the resampling
@@ -301,6 +324,10 @@ def _auto_best(name: str, df, summary) -> dict:
 def api_laps(name: str) -> dict:
     df = _df(name)
     s = lap_summary(df)
+    try:
+        surface.update(_info(name)["info"], group_for(FOLDER, name)["id"], df, s)     # what this session's laps show of the track
+    except Exception:
+        pass                                                                          # never let this stop the laps from loading
     laps = [{"lap": int(i), "time": r.lap_time, "time_str": fmt_time(r.lap_time),
              "top_speed": round(r.top_speed, 1), "pit": bool(r.pit), "complete": bool(r.complete),
              "valid": bool(r.valid), "reason": r.reason, "comparable": bool(r.length_ok)}
@@ -330,7 +357,12 @@ def api_turns(name: str, include_saved: bool = True) -> dict:
     return r
 
 
-_TRACE = ("speed", "throttle", "brake", "steer", "gear")      # what the charts draw
+_TRACE = ("speed", "throttle", "brake", "steer", "gear", "time")      # what the charts draw (and, with time, what the track view plays back)
+_LINE = ("x", "y", "lateral", "edge")                           # the racing line (metres), for the track view
+
+
+def _line(a) -> list:
+    return [None if not np.isfinite(v) else round(float(v), 2) for v in np.asarray(a, float)]
 
 
 def api_compare(name: str, ref: str, other_lap: int) -> dict:
@@ -355,13 +387,24 @@ def api_compare(name: str, ref: str, other_lap: int) -> dict:
     return {
         "dist": _clean(ref_df["dist"]),
         "delta": _clean(delta),
-        "ref": {c: _clean(ref_df[c]) for c in _TRACE if c in ref_df.columns},
-        "other": {c: _clean(other[c]) for c in _TRACE if c in other.columns},
+        "ref": {**{c: _clean(ref_df[c]) for c in _TRACE if c in ref_df.columns}, **{c: _line(ref_df[c]) for c in _LINE if c in ref_df.columns}},
+        "other": {**{c: _clean(other[c]) for c in _TRACE if c in other.columns}, **{c: _line(other[c]) for c in _LINE if c in other.columns}},
         "single": single,
         "saved": saved,
         "final_delta": round(float(delta.iloc[-1]), 3),
         "corners": corner_report(ref_df, other, delta, zones),
     }
+
+
+def api_edges(name: str) -> dict:
+    """The two edges of the track in metres, from all laps of the session (see analysis/edges.py)."""
+    df, s, info = _df(name), lap_summary(_df(name)), _info(name)["info"]
+    try:
+        surface.update(info, group_for(FOLDER, name)["id"], df, s)
+        e = surface.edges(info)                      # everything learned about this track so far, over all sessions
+    except Exception:
+        e = None
+    return {"edges": e or track_edges(df, s)}
 
 
 def api_saved(name: str) -> dict:
@@ -467,6 +510,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_laps(q["file"])
             elif u.path == "/api/compare":
                 data = api_compare(q["file"], q["ref"], int(q["other"]))
+            elif u.path == "/api/edges":
+                data = api_edges(q["file"])
             elif u.path == "/api/saved":
                 data = api_saved(q["file"])
             else:
@@ -556,6 +601,7 @@ def main():
     updater.leftovers_cleanup()
     updater.start_background()
     threading.Thread(target=_cleanup_loop, daemon=True).start()
+    threading.Thread(target=backfill_surface, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

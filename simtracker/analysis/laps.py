@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 
 CHANNELS = ["speed", "throttle", "brake", "steer"]
+REF_LAT = 60.0         # the game's GPS positions are made-up coordinates around lat 60, lon 0; everything is shifted to metres from there
+M_PER_DEG = 110574.0   # metres per degree of latitude
 GRID_STEP_M = 5.8      # one comparison point about every 5.8 m, on any track (1000 points on Monza)
 
 
@@ -61,6 +63,13 @@ def lap_on_grid(df: pd.DataFrame, lap: int, length: float, n: int = 1000) -> pd.
     out = {"dist": grid, "time": np.interp(grid, dist, elapsed[keep])}
     for c in CHANNELS:
         out[c] = np.interp(grid, dist, d[c].to_numpy()[keep])
+    if "lat" in d.columns and d[["lat", "lon"]].notna().all().all():          # the line on the track, in metres (east, north)
+        lat, lon = d["lat"].to_numpy()[keep], d["lon"].to_numpy()[keep]
+        out["x"] = np.interp(grid, dist, lon * 111320.0 * np.cos(np.radians(lat)))
+        out["y"] = np.interp(grid, dist, (lat - REF_LAT) * M_PER_DEG)
+    for c in ("lateral", "edge"):              # metres right (+) / left (-) of the track's centre line, and where the edge is
+        if c in d.columns and d[c].notna().all():
+            out[c] = np.interp(grid, dist, d[c].to_numpy()[keep])
     if "gear" in d.columns:                    # a gear is a whole number: take the gear you were in, don't blend two
         at = np.clip(np.searchsorted(dist, grid, side="right") - 1, 0, len(dist) - 1)
         out["gear"] = d["gear"].to_numpy()[keep][at].astype(float)

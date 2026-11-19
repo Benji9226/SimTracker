@@ -3,12 +3,18 @@
 The game starts a new .duckdb every time you leave the garage, even inside one practice
 session. Two files are the same session when they are for the same track, car and session
 type AND the later one carries on where the earlier one stopped: its first lap number is the
-earlier one's last lap (or the next), and the odometer (Total Dist) continues. Restarting the
-game or a new session resets both, so those stay separate.
+earlier one's last lap (or the next), and the odometer (Total Dist) continues.
+
+Runs that do not carry on (the game was restarted, or the session was left and joined again) are also put in
+one session when they are from the same day (your own time zone) with the same track, layout, car and session
+type, so a day of practice with a car on one track is one session. For those, `links` says which files carry
+on from the one before (True) and which start over (False); the loader uses that to renumber the laps.
 """
 from __future__ import annotations
 
+import re
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 from simtracker.telemetry.loader import open_db
@@ -58,8 +64,19 @@ def _continues(a: dict, b: dict) -> bool:
             and b["t0"] >= a["t0"])
 
 
+_RECORDED = re.compile(r"(\d{4})-(\d\d)-(\d\d)T(\d\d)_(\d\d)_(\d\d)Z")
+
+
+def _local_day(recorded: str | None, name: str):
+    """The day (in this computer's time zone) a run was recorded, or None."""
+    m = _RECORDED.search(recorded or "") or _RECORDED.search(name)
+    if not m:
+        return None
+    return datetime(*map(int, m.groups()), tzinfo=timezone.utc).astimezone().date()
+
+
 def groups(folder: Path) -> list[dict]:
-    """Sessions, newest first: {"id", "files" (oldest first), "label", "mtime", "runs"}."""
+    """Sessions, newest first: {"id", "files" (oldest first), "links", "label", "mtime", "runs"}."""
     items = []
     for p in folder.glob("*.duckdb"):
         try:
@@ -76,11 +93,28 @@ def groups(folder: Path) -> list[dict]:
                     target = g
                     break
         if target is None:
-            out.append({"id": p.name, "files": [p.name], "facts": f, "mtime": mtime})
+            out.append({"id": p.name, "files": [p.name], "links": [], "facts": f, "first": f, "mtime": mtime})
         else:
             target["files"].append(p.name)
+            target["links"].append(True)                  # carries on from the file before it
             target["facts"] = f
             target["mtime"] = max(target["mtime"], mtime)
+    by_day: dict[tuple, dict] = {}                        # same day, track, layout, car and session type: one session
+    merged: list[dict] = []
+    for g in out:
+        first = g.get("first")
+        key = (_local_day(first["recorded"], g["id"]), first["who"]) if first else None
+        if key and key[0] is not None and key in by_day:
+            t = by_day[key]
+            t["files"] += g["files"]
+            t["links"] += [False] + g["links"]            # a new start: laps and clock begin again
+            t["facts"] = g["facts"]
+            t["mtime"] = max(t["mtime"], g["mtime"])
+        else:
+            merged.append(g)
+            if key and key[0] is not None:
+                by_day[key] = g
+    out = merged
     for g in out:
         g["runs"] = len(g["files"])
         base = g["id"].replace(".duckdb", "").replace("_", " ")

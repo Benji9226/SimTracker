@@ -146,7 +146,12 @@ def _swap_and_restart(new_exe: Path, old_exe: Path, pid: int) -> None:
         '(goto) 2>nul & del "%~f0"',
     ]) + "\r\n", encoding="ascii")
     flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)          # a small window that says what is going on (and why, if it fails)
-    subprocess.Popen(["cmd.exe", "/c", str(script)], creationflags=flags, close_fds=True, cwd=str(old_exe.parent))
+    # The new exe must start as a brand-new program. A PyInstaller exe leaves markers in its environment that tell a program
+    # started from it "you are the same instance, use my unpacked files"; those files are gone once this program has exited,
+    # so the new exe would silently fail to start. Remove the markers and ask PyInstaller to reset itself.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("_PYI") and not k.startswith("_MEIPASS")}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    subprocess.Popen(["cmd.exe", "/c", str(script)], creationflags=flags, close_fds=True, cwd=str(old_exe.parent), env=env)
 
 
 def install(exit_after=lambda: os._exit(0)) -> None:

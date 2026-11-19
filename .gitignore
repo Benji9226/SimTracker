@@ -5,6 +5,7 @@ build/
 # Personal data written while using the program: everyone has their own.
 data/saved_laps/
 data/tracks/
+data/track_surface/
 data/config.json
 data/settings.json
 data/cleanup_log.txt
@@ -15,3 +16,4 @@ output/
 __pycache__/
 *.pyc
 .qodo/
+tools/install_dir.txt

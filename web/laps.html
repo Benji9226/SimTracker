@@ -44,6 +44,69 @@
   .help summary { cursor:pointer; color:var(--text); }
   .help li { margin:4px 0; }
   .caption { color:var(--dim); font-size:12px; margin:8px 0 0; }
+  #mapCard { cursor:zoom-in; position:relative; }
+  #mapCard .expand { position:absolute; top:10px; right:10px; font-size:11px; color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:2px 7px; background:var(--panel); }
+  #mapCard:hover .expand { color:var(--text); border-color:var(--a); }
+  dialog#tv { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:0; width:96vw; height:92vh; max-width:none; max-height:none; overflow:hidden; }
+  dialog#tv::backdrop { background:rgba(0,0,0,.6); }
+  #tv .tvwrap { display:flex; flex-direction:column; height:100%; }
+  #tv .tvbar { display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--line); font-size:13px; }
+  #tv .tvbar h3 { margin:0; font-size:15px; }
+  #tv .tvbar label { color:var(--dim); display:flex; gap:5px; align-items:center; }
+  #tv .tvbar .grow { flex:1; }
+  #tv .tvbody { flex:1; display:flex; min-height:0; }
+  #tv .tvhud { display:flex; gap:12px; padding:8px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap; max-height:34vh; overflow:auto; }
+  #tv .hud { flex:1; min-width:250px; display:flex; align-items:center; gap:14px; border:1px solid var(--line); border-left:5px solid var(--line); border-radius:8px; padding:6px 12px; background:var(--bg); }
+  #tv .hud .hname { font-size:12px; color:var(--dim); line-height:1.2; width:84px; overflow:hidden; text-overflow:ellipsis; }
+  #tv .hud .hname b { display:block; color:var(--text); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #tv .hud svg.wheel { width:54px; height:54px; flex:none; }
+  #tv .hud .hspeed { text-align:center; min-width:70px; font-variant-numeric:tabular-nums; }
+  #tv .hud .hspeed b { font-size:26px; line-height:1; display:block; }
+  #tv .hud .hspeed small { color:var(--dim); font-size:11px; }
+  #tv .hud .bars { flex:1; min-width:110px; display:grid; gap:6px; }
+  #tv .hud .bar { position:relative; height:16px; border-radius:4px; background:rgba(128,128,128,.22); overflow:hidden; }
+  #tv .hud .bar i { position:absolute; left:0; top:0; bottom:0; width:0; }
+  #tv .hud .bar.brk i { background:#ff5a52; } #tv .hud .bar.thr i { background:#3fcf8e; }
+  #tv .hud .bar span { position:absolute; left:6px; top:0; font-size:11px; line-height:16px; font-weight:600; color:var(--text); mix-blend-mode:normal; }
+  #tv .hud .bar em { position:absolute; right:6px; top:0; font-size:11px; line-height:16px; font-style:normal; font-variant-numeric:tabular-nums; }
+  #tv .hud .steerval { font-size:11px; color:var(--dim); text-align:center; font-variant-numeric:tabular-nums; }
+  #tv .hud { cursor:pointer; transition:box-shadow .15s, background .15s; position:relative; }
+  #tv .hud:hover { background:rgba(128,128,128,.10); }
+  #tv .hud.following { box-shadow:0 0 0 2px var(--a) inset; }
+  #tv .hud .follow { display:none; position:absolute; top:3px; right:8px; font-size:10px; color:var(--a); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+  #tv .hud.following .follow { display:block; }
+  #tv .hud .hname .hlap { font-size:15px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; margin-top:2px; }
+  #tv .hud .hname .hrun { font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #tv .hud .hname { width:104px; }
+  #tvSvg .gaplab { font-weight:700; paint-order:stroke; stroke:var(--bg); stroke-linejoin:round; pointer-events:none; font-variant-numeric:tabular-nums; }
+  #tv .deltabox { flex-basis:100%; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--dim); }
+  #tv .deltabar { position:relative; flex:1; height:14px; border-radius:7px; background:rgba(128,128,128,.22); overflow:hidden; }
+  #tv .deltabar::after { content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; background:var(--dim); opacity:.6; }
+  #tv .deltabar i { position:absolute; top:0; bottom:0; width:0; }
+  #tv .deltaval { min-width:210px; text-align:center; font-size:13px; color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+  #tv .tvplay { display:flex; gap:14px; align-items:center; padding:10px 14px; border-top:1px solid var(--line); }
+  #tv .tvplay input[type=range] { flex:1; accent-color:var(--a); }
+  #tv .tvplay .clock { font-variant-numeric:tabular-nums; color:var(--dim); font-size:13px; min-width:130px; text-align:right; }
+  #tv .tvplay .btn { min-width:92px; }
+
+  #tvSvg { flex:1; min-width:0; background:var(--bg); touch-action:none; cursor:grab; display:block; width:100%; height:100%; }
+  #tvSvg.drag { cursor:grabbing; }
+  #tv aside { width:260px; border-left:1px solid var(--line); padding:12px 14px; font-size:13px; line-height:1.5; overflow:auto; display:block; }
+  #tv aside h4 { margin:0 0 6px; font-size:12px; color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
+  #tv .lg { display:flex; align-items:center; gap:8px; margin:4px 0; }
+  #tv .sw { width:26px; height:0; border-top-style:solid; }
+  #tv .scale { height:10px; border-radius:5px; margin:6px 0 2px; }
+  #tv .scalelab { display:flex; justify-content:space-between; color:var(--dim); font-size:11px; }
+  #tv table { font-size:12px; margin-top:4px; } #tv td, #tv th { padding:2px 4px; border:0; }
+  #tv .hint { color:var(--dim); font-size:12px; margin-top:12px; }
+  #tvSvg .surface { fill:var(--panel); stroke:#7a8094; stroke-width:1.2px; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
+  #tvSvg .sf { stroke:var(--good); stroke-width:4px; vector-effect:non-scaling-stroke; stroke-linecap:butt; }
+  #tvSvg .sflab { fill:var(--good); font-weight:600; }
+  .sftick { stroke:var(--good); stroke-width:4px; vector-effect:non-scaling-stroke; stroke-linecap:butt; pointer-events:none; }
+  #tvSvg line.seg { vector-effect:non-scaling-stroke; stroke-linecap:round; }
+  #tvSvg .mark { vector-effect:non-scaling-stroke; stroke:var(--bg); stroke-width:2px; }
+  @media (max-width: 800px) { #tv .tvbody { flex-direction:column; } #tv aside { width:auto; border-left:0; border-top:1px solid var(--line); max-height:35%; } }
+
   #mapCard { min-width:0; overflow:hidden; }
   #mapCard h2 { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #mapCard svg { display:block; width:100%; height:200px; overflow:visible; }
@@ -62,7 +125,7 @@
 <main>
   <aside>
     <div class="card" id="mapCard" hidden>
-      <h2 id="mapTitle">Track layout</h2>
+      <h2 id="mapTitle">Track layout</h2><span class="expand" title="Open the big track view with both racing lines">Enlarge</span>
       <div id="mapBox"></div>
     </div>
     <div class="card">
@@ -107,10 +170,39 @@
     </details>
   </section>
 </main>
+<dialog id="tv">
+  <div class="tvwrap">
+    <div class="tvbar">
+      <h3 id="tvTitle">Track view</h3>
+      <label>Colour the lines by
+        <select id="tvColor"><option value="lap">Lap (blue / red)</option><option value="speed">Speed</option><option value="brake">Braking</option><option value="throttle">Throttle</option><option value="room">Room to the track edge</option></select></label>
+      <label><input type="checkbox" id="tvRef" checked> Reference</label>
+      <label><input type="checkbox" id="tvChk" checked> Checked lap</label>
+      <label title="The surface of the track, worked out from every lap you have driven here (remembered between sessions)"><input type="checkbox" id="tvEdges" checked> Track surface</label>
+      <span class="grow"></span>
+      <button class="btn small-btn" id="tvReset" title="Zoom out to the whole track">Reset zoom</button>
+      <button class="btn small-btn" id="tvClose">Close</button>
+    </div>
+    <div class="tvhud" id="tvHud"></div>
+    <div class="tvbody">
+      <svg id="tvSvg" role="img" aria-label="Racing lines on the track"></svg>
+      <aside>
+        <h4>Lines</h4>
+        <div id="tvLegend"></div>
+        <h4 style="margin-top:14px">At the pointer</h4>
+        <div id="tvRead" class="small" style="margin:0">Move the pointer over the track.</div>
+        <div class="hint">Scroll to zoom, drag to move, double-click to zoom out. "Room to the track edge" colours each line by how far the car was from the edge of the track (the game measures this). The grey track surface is worked out from where the game says the edges are in every lap you have driven on this track. It is remembered between sessions, so it gets more accurate the more you drive here; where no lap went near an edge it is filled in from the places that did.</div>
+      </aside>
+    </div>
+    <div class="tvplay"><button class="btn" id="tvPlay" title="Play both laps in real time">&#9654; Play</button>
+      <input type="range" id="tvSlider" min="0" max="1000" value="0" aria-label="Position in the lap">
+      <span class="clock" id="tvClock">0:00.0</span></div>
+  </div>
+</dialog>
 <script src="/common.js"></script>
 <script>
 // S.target is either a lap number of this session, or "saved:<id>" for a lap saved earlier.
-const S = { dot: null, chartLen: 0, file: null, laps: [], saved: [], target: null, check: null, manual: false, corners: [], single: false, bestLap: null };
+const S = { last: null, edges: null, edgesFor: null, dot: null, chartLen: 0, file: null, laps: [], saved: [], target: null, check: null, manual: false, corners: [], single: false, bestLap: null };
 const lapT = s => { const m = Math.floor(s / 60); return m + ":" + (s - m * 60).toFixed(3).padStart(6, "0"); };
 const lapInfo = n => S.laps.find(l => l.lap === n);
 const cleanLaps = () => S.laps.filter(l => l.complete);
@@ -140,6 +232,12 @@ function drawTrackMap(m) {
   $("mapBox").innerHTML = `<svg preserveAspectRatio="xMidYMid meet" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}" role="img" aria-label="Track layout of ${m.title}">` +
     m.shapes.map(s => `<path class="${s.kind === "fill" ? "mapfill" : "mapline"}" d="${path(s)}"/>`).join("") + (m.dot ? '<circle id="mapDot" class="mapdot" r="0.02" visibility="hidden"/>' : "") + "</svg>";
   S.dot = m.dot || null;
+  if (m.dot && m.dot.points.length > 3) {                    // a tick across the line where the lap starts and finishes
+    const p0 = m.dot.points[0], p1 = m.dot.points[3], dx = p1[0] - p0[0], dy = p1[1] - p0[1], n = Math.hypot(dx, dy) || 1;
+    const half = 0.035 * Math.max(x1 - x0, y1 - y0);
+    $("mapBox").querySelector("svg").insertAdjacentHTML("beforeend",
+      `<line class="sftick" x1="${p0[0] - dy / n * half}" y1="${p0[1] + dx / n * half}" x2="${p0[0] + dy / n * half}" y2="${p0[1] - dx / n * half}"><title>Start / finish line</title></line>`);
+  }
   $("mapTitle").textContent = "Track layout · " + m.title;
   $("mapTitle").title = m.title;
   card.hidden = false;
@@ -165,7 +263,7 @@ function bindHover() {
 }
 
 function resetView() {                       // nothing from the previous session may stay on screen
-  S.laps = []; S.saved = []; S.target = null; S.check = null; S.corners = [];
+  S.laps = []; S.saved = []; S.target = null; S.check = null; S.corners = []; S.last = null; S.edges = null; S.edgesFor = null;
   $("laps").querySelector("tbody").innerHTML = ""; $("savedList").innerHTML = "";
   $("saveBtn").disabled = true; $("saveBtn").textContent = "Save lap"; $("saveMsg").textContent = "";
   $("pbnote").style.display = "none";
@@ -328,7 +426,8 @@ async function compare() {
   let d;
   try { d = await api(`/api/compare?file=${encodeURIComponent(S.file)}&ref=${encodeURIComponent(S.target)}&other=${S.check}`); }
   catch (e) { return showMsg("Could not compare these laps: " + e.message); }
-  S.single = d.single; S.corners = d.corners;
+  S.single = d.single; S.corners = d.corners; S.last = d;
+  if ($("tv").open) TV.render(false);
   renderSummary(d);
   renderTurnTable(d);
   draw(d);
@@ -396,7 +495,7 @@ function draw(d) {
   if (gears.length) panels.push({ k: "gear", title: "Gear", w: 0.17, gear: true, hv: "%{y:.0f}" });
   panels.push({ k: "throttle", title: "Throttle", w: 0.17, pct: true, hv: "%{y:.0%}" });
   panels.push({ k: "brake", title: "Brake", w: 0.17, pct: true, hv: "%{y:.0%}" });
-  panels.push({ k: "steer", title: "Steering", w: 0.17, hv: "%{y:.0f}°" });
+  panels.push({ k: "steer", title: "Steering", w: 0.17, hv: "%{y:.0f}%" });
   const total = panels.reduce((s, p) => s + p.w, 0);
   const gap = 0.02, traces = [], layout = {
     height: 120 * panels.length + 150, margin: { l: 62, r: 16, t: 40, b: 110 },
@@ -439,6 +538,403 @@ document.addEventListener("click", e => {
   const el = e.target.closest(".rename");
   if (el) renameTurn(+el.dataset.n, el.dataset.name, () => compare());
 });
+
+// ---------------------------------------------------------------- big track view: zoomable, with both racing lines
+const TV = {
+  d: null, edges: null, edgesFor: null, box: null, home: null, idx: null, drag: null,
+  colour: { speed: v => `hsl(${(240 * (1 - v)).toFixed(0)} 85% 55%)`,
+            brake: v => `rgb(${(90 + 165 * v).toFixed(0)} ${(90 - 40 * v).toFixed(0)} ${(95 - 45 * v).toFixed(0)})`,
+            throttle: v => `rgb(${(90 - 40 * v).toFixed(0)} ${(95 + 120 * v).toFixed(0)} ${(100 - 20 * v).toFixed(0)})`,
+            room: v => `hsl(${(120 * v).toFixed(0)} 80% 50%)` },          // red at the edge, green with 6 m or more to spare
+
+  async open() {
+    if (!S.last) return;
+    TV.play.t = 0; TV.follow = null; TV.stop();
+    $("tv").showModal();
+    $("tvTitle").textContent = "Track view · " + ($("mapTitle").textContent.replace(/^Track layout · /, "") || "");
+    if (S.edgesFor !== S.file) {
+      S.edges = null; S.edgesFor = S.file;
+      try { S.edges = (await api("/api/edges?file=" + encodeURIComponent(S.file))).edges; } catch (e) { S.edges = null; }
+    }
+    TV.render(true);
+  },
+
+  render(fit) {
+    const d = S.last, svg = $("tvSvg");
+    if (!d) return;
+    const ref = d.ref, chk = d.single ? null : d.other, mode = $("tvColor").value;
+    const hasRef = ref.x && ref.y, hasChk = chk && chk.x && chk.y;
+    TV.d = d;
+    const pts = [];                                         // (x east, y north) -> screen (x, -y)
+    const P = (l, i) => [l.x[i], -l.y[i]];
+    const all = [];
+    for (const l of [hasRef ? ref : null, hasChk ? chk : null]) if (l) for (let i = 0; i < l.x.length; i++) if (l.x[i] != null && l.y[i] != null) all.push(P(l, i));
+    if (!all.length) { svg.innerHTML = ""; $("tvLegend").innerHTML = "<p class='small'>The laps you picked have no racing line (the game's GPS channels are missing, or a saved lap from an older version).</p>"; return; }
+    let h = "";
+    // the surface of the track: a filled strip wherever both edges are known
+    const E = S.edges;
+    if (E && $("tvEdges").checked) {
+      let a = [], b = [];
+      const flush = () => { if (a.length > 1) h += `<polygon class="surface" points="${a.concat(b.reverse()).join(" ")}"/>`; a = []; b = []; };
+      for (let i = 0; i < E.left.length; i++) {
+        const L = E.left[i], R = E.right[i];
+        if (L && R) { a.push(L[0] + "," + -L[1]); b.push(R[0] + "," + -R[1]); } else flush();
+      }
+      flush();
+    }
+    // ranges for the colour scales (the same for both laps, so they can be compared)
+    const rng = k => { let lo = 1e9, hi = -1e9; for (const l of [ref, chk]) if (l && l[k]) for (const v of l[k]) if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } return [lo, hi]; };
+    const [s0, s1] = rng("speed");
+    const val = (l, i) => mode === "speed" ? (l.speed[i] - s0) / Math.max(1e-9, s1 - s0)
+      : mode === "room" ? (l.edge && l.lateral && l.edge[i] != null && l.lateral[i] != null ? Math.max(0, Math.min(1, Math.abs(l.edge[i] - l.lateral[i]) / 6)) : 0.5)
+      : Math.max(0, Math.min(1, l[mode][i]));
+    const showRef = $("tvRef").checked && hasRef, showChk = $("tvChk").checked && hasChk;
+    TV.ctx = { ref, chk, hasRef, hasChk, showRef, showChk, mode, val };
+    TV.norm = null; TV.lastK = null;
+    h += '<g id="tvLines"></g>';                            // the racing lines (drawn by drawLines, because their spacing depends on the zoom)
+    // start / finish and the pointer markers
+    const base = hasRef ? ref : chk;
+    const f0 = P(base, 0), f1 = P(base, Math.min(3, base.x.length - 1));
+    let a0 = null, a1 = null;
+    if (E && E.left[0] && E.right[0]) { a0 = [E.left[0][0], -E.left[0][1]]; a1 = [E.right[0][0], -E.right[0][1]]; }
+    else {                                                  // no edges known there: a 14 m line across the direction of travel
+      const dx = f1[0] - f0[0], dy = f1[1] - f0[1], n = Math.hypot(dx, dy) || 1, px = -dy / n * 7, py = dx / n * 7;
+      a0 = [f0[0] + px, f0[1] + py]; a1 = [f0[0] - px, f0[1] - py];
+    }
+    h += `<line class="sf" x1="${a0[0]}" y1="${a0[1]}" x2="${a1[0]}" y2="${a1[1]}"><title>Start / finish line</title></line>`;
+    h += `<text class="sflab" id="tvSF" x="${a1[0]}" y="${a1[1]}" dx="6" dy="-6" font-size="12">Start / finish</text>`;
+    h += `<circle class="mark" id="tvMRef" r="5" fill="#4da3ff" visibility="hidden"/><circle class="mark" id="tvMChk" r="5" fill="#ff6b6b" visibility="hidden"/><text id="tvGap" class="gaplab" x="0" y="0" font-size="13" visibility="hidden"></text>`;
+    svg.innerHTML = `<g id="tvG">${h}</g>`;
+    // legend
+    const nameRef = d.single ? targetLabel(true) : targetLabel(false).replace(" (target)", ""), nameChk = `Lap ${S.check}`;
+    const sw = (c, w, dash) => `<span class="sw" style="border-top-width:${w}px;border-color:${c};${dash ? "border-top-style:dashed" : ""}"></span>`;
+    let lg = "";
+    if (mode === "lap") lg += `<div class="lg">${sw("#4da3ff", 3)} ${esc(nameRef)} <span class="small" style="margin:0">(reference)</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff6b6b", 3)} ${esc(nameChk)} <span class="small" style="margin:0">(checking)</span></div>`);
+    else {
+      const [lo, hi] = mode === "speed" ? [s0, s1] : [0, 1];
+      const grad = [0, .25, .5, .75, 1].map(v => TV.colour[mode](v)).join(",");
+      lg += `<div class="lg">${sw("#4da3ff", 4)} ${esc(nameRef)} <span class="small" style="margin:0">reference</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff6b6b", 4)} ${esc(nameChk)} <span class="small" style="margin:0">checking</span></div>`) +
+        (d.single ? "" : `<p class="small" style="margin:2px 0 6px">The two laps run side by side (the reference on the left, in the direction of travel) so you can compare their colours. Zoom in and they move to where they really were.</p>`) +
+        `<div class="scale" style="background:linear-gradient(90deg,${grad})"></div><div class="scalelab"><span>${mode === "speed" ? lo.toFixed(0) + " km/h" : mode === "room" ? "at the edge" : "none"}</span><span>${mode === "speed" ? hi.toFixed(0) + " km/h" : mode === "room" ? "6 m+ to spare" : "full " + mode}</span></div>`;
+    }
+    lg += `<div class="lg">${sw("var(--good)", 4)} start / finish line</div>`;
+    if (E && $("tvEdges").checked) lg += `<div class="lg"><span class="sw" style="border-top:8px solid var(--panel);outline:1px solid #7a8094"></span> track surface · from ${E.laps_used} lap${E.laps_used === 1 ? "" : "s"}</div>`;
+    if (!hasRef && !d.single) lg += `<p class="small">The reference lap has no racing line (a saved lap from an older version).</p>`;
+    if (!hasChk && !d.single) lg += `<p class="small">The checked lap has no racing line.</p>`;
+    $("tvLegend").innerHTML = lg;
+    // view box
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [x, y] of all) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    const pad = 0.04 * Math.max(x1 - x0, y1 - y0);
+    TV.home = { x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad };
+    if (fit || !TV.box) TV.box = { ...TV.home };
+    TV.apply();
+    TV.hudInit();
+    TV.frame();
+  },
+
+  // The two laps are drawn as parallel strips that are never closer than 7 px (centre to centre), so the difference
+  // between them can be seen when zoomed out. Where they are really further apart than that (or when zoomed in) they are
+  // drawn where they truly are. In "Lap" colours (blue / red) they are not moved.
+  drawLines() {
+    const c = TV.ctx, g = $("tvLines"), svg = $("tvSvg");
+    if (!c || !g || !TV.vb) return;
+    const k = TV.vb.w / Math.max(1, svg.getBoundingClientRect().width);               // metres per pixel
+    TV.lastK = k;
+    const colourMode = c.mode !== "lap";
+    const base = c.hasRef ? c.ref : c.chk, n = base.x.length;
+    if (!TV.norm) {                                                                   // direction across the track, on the screen
+      const nx = new Array(n).fill(0), ny = new Array(n).fill(0);
+      for (let i = 0; i < n; i++) {
+        const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1);
+        if (base.x[a] == null || base.x[b] == null) continue;
+        const tx = base.x[b] - base.x[a], ty = -(base.y[b] - base.y[a]), L = Math.hypot(tx, ty) || 1;
+        nx[i] = -ty / L; ny[i] = tx / L;
+      }
+      TV.norm = [nx, ny];
+    }
+    const [nx, ny] = TV.norm;
+    const both = c.showRef && c.showChk && colourMode, minSep = both ? 7 * k : 0;
+    const pr = [], pc = [];
+    for (let i = 0; i < n; i++) {
+      let r = c.hasRef && c.ref.x[i] != null ? [c.ref.x[i], -c.ref.y[i]] : null;
+      let q = c.hasChk && c.chk.x[i] != null ? [c.chk.x[i], -c.chk.y[i]] : null;
+      if (r && q && minSep) {
+        const d = (q[0] - r[0]) * nx[i] + (q[1] - r[1]) * ny[i];
+        if (Math.abs(d) < minSep) {
+          const sg = d >= 0 ? 1 : -1, shift = (minSep - Math.abs(d)) / 2;
+          r = [r[0] - sg * shift * nx[i], r[1] - sg * shift * ny[i]];
+          q = [q[0] + sg * shift * nx[i], q[1] + sg * shift * ny[i]];
+        }
+      }
+      pr.push(r); pc.push(q);
+    }
+    TV.pos = { ref: pr, chk: pc };
+    const width = colourMode ? 4 : 2.5;
+    const draw = (l, p, show, solid) => {
+      if (!show || !l) return "";
+      let out = "";
+      for (let i = 0; i < n - 1; i++) {
+        if (!p[i] || !p[i + 1]) continue;
+        const col = colourMode ? TV.colour[c.mode](c.val(l, i)) : solid;
+        out += `<line class="seg" x1="${p[i][0]}" y1="${p[i][1]}" x2="${p[i + 1][0]}" y2="${p[i + 1][1]}" stroke="${col}" stroke-width="${width}"/>`;
+      }
+      return out;
+    };
+    g.innerHTML = draw(c.ref, pr, c.showRef, "#4da3ff") + draw(c.chk, pc, c.showChk, "#ff6b6b");
+  },
+
+  apply() {
+    const svg = $("tvSvg"), b = TV.box, r = svg.getBoundingClientRect();
+    const asp = r.width / Math.max(1, r.height);                 // keep the picture undistorted: widen the box to the window's shape
+    let w = b.w, h = b.h;
+    if (w / h < asp) w = h * asp; else h = w / asp;
+    svg.setAttribute("viewBox", `${b.x - (w - b.w) / 2} ${b.y - (h - b.h) / 2} ${w} ${h}`);
+    TV.vb = { x: b.x - (w - b.w) / 2, y: b.y - (h - b.h) / 2, w, h };
+    const sf = $("tvSF"); if (sf) { const k = w / Math.max(1, r.width); sf.setAttribute("font-size", (12 * k).toFixed(4)); sf.setAttribute("dx", (6 * k).toFixed(4)); sf.setAttribute("dy", (-6 * k).toFixed(4)); }
+    TV.markerSize();
+    const kk = w / Math.max(1, r.width);
+    if (TV.ctx && (TV.lastK == null || Math.abs(kk / TV.lastK - 1) > 0.01)) {
+      if (TV.lastK == null) TV.drawLines();
+      else if (!TV.raf) TV.raf = requestAnimationFrame(() => { TV.raf = 0; TV.drawLines(); });
+    }
+  },
+
+  placeGap() {
+    const g = $("tvGap"), r = $("tvSvg").getBoundingClientRect();
+    if (!g || !TV.gapAt || !TV.vb || !r.width) return;
+    const k = TV.vb.w / r.width;
+    g.setAttribute("x", TV.gapAt[0] + 11 * k); g.setAttribute("y", TV.gapAt[1] - 9 * k);
+    g.setAttribute("font-size", (14 * k).toFixed(4)); g.setAttribute("stroke-width", (4 * k).toFixed(4));
+  },
+
+  markerSize() {
+    const r = $("tvSvg").getBoundingClientRect(); if (!TV.vb || !r.width) return;
+    const k = TV.vb.w / r.width;
+    for (const id of ["tvMRef", "tvMChk"]) { const m = $(id); if (m) m.setAttribute("r", (5 * k).toFixed(4)); }
+    TV.placeGap();
+  },
+
+  toWorld(ev) {
+    const r = $("tvSvg").getBoundingClientRect(), v = TV.vb;
+    return [v.x + (ev.clientX - r.left) / r.width * v.w, v.y + (ev.clientY - r.top) / r.height * v.h];
+  },
+
+  zoom(ev, factor) {
+    const v = TV.vb, b = TV.box;
+    const [wx, wy] = TV.follow ? [v.x + v.w / 2, v.y + v.h / 2] : TV.toWorld(ev);        // while following, zoom around the car in the middle
+    const nw = Math.max(TV.home.w / 400, Math.min(TV.home.w * 3, v.w * factor)), k = nw / v.w;
+    const nx = wx - (wx - v.x) * k, ny = wy - (wy - v.y) * k;
+    TV.box = { x: nx, y: ny, w: v.w * k, h: v.h * k };
+    TV.apply();
+  },
+
+  hover(ev) {
+    const d = TV.d; if (!d || TV.play.on) return;
+    const [wx, wy] = TV.toWorld(ev), p = TV.pos && (TV.pos.ref.some(v => v) ? TV.pos.ref : TV.pos.chk);
+    if (!p) return;
+    let best = -1, bd = 1e18;
+    for (let i = 0; i < p.length; i++) { if (!p[i]) continue; const dx = p[i][0] - wx, dy = p[i][1] - wy, q = dx * dx + dy * dy; if (q < bd) { bd = q; best = i; } }
+    const r = $("tvSvg").getBoundingClientRect();
+    if (best < 0 || Math.sqrt(bd) > 40 * TV.vb.w / r.width) { TV.mark(null); return; }     // not near the line (40 px)
+    TV.mark(best);
+  },
+
+  mark(i) {
+    if (TV.play.on) return;
+    const d = TV.d, rd = $("tvRead");
+    if (i != null && d) {                                      // the widgets show the inputs at this spot of the track
+      TV.hudSet("hudRef", TV.valuesAt(d.ref, i, 0));
+      if (!d.single) TV.hudSet("hudChk", TV.valuesAt(d.other, i, 0));
+    }
+    const mr = $("tvMRef"), mc = $("tvMChk");
+    if (i == null || !d) { if (mr) mr.setAttribute("visibility", "hidden"); if (mc) mc.setAttribute("visibility", "hidden"); rd.textContent = "Move the pointer over the track."; return; }
+    const one = (p, m) => { if (!m) return; if (p && p[i]) { m.setAttribute("cx", p[i][0]); m.setAttribute("cy", p[i][1]); m.setAttribute("visibility", "visible"); } else m.setAttribute("visibility", "hidden"); };
+    one(TV.pos && TV.pos.ref, mr); one(d.single ? null : TV.pos && TV.pos.chk, mc);
+    const g = $("tvGap");                                       // pointing at a spot shows the time gap at that spot, beside the checked lap's dot
+    if (g && !d.single && d.delta && d.delta[i] != null && TV.pos && TV.pos.chk && TV.pos.chk[i]) {
+      const gap = d.delta[i];
+      g.textContent = Math.abs(gap) < 0.005 ? "0.00 s" : (gap > 0 ? "+" : "−") + Math.abs(gap).toFixed(2) + " s";
+      g.setAttribute("fill", Math.abs(gap) < 0.005 ? "#cfd3de" : gap > 0 ? "#ff8a80" : "#6be3a2");
+      TV.gapAt = TV.pos.chk[i]; TV.placeGap(); g.setAttribute("visibility", "visible");
+    }
+    const side = l => l && l.lateral && l.lateral[i] != null ? (Math.abs(l.lateral[i]) < 0.05 ? "on the centre" : Math.abs(l.lateral[i]).toFixed(1) + " m " + (l.lateral[i] > 0 ? "right" : "left") + " of centre") : "–";
+    const room = l => l && l.lateral && l.edge && l.edge[i] != null && l.lateral[i] != null ? Math.abs(l.edge[i] - l.lateral[i]).toFixed(1) + " m to the edge" : "";
+    const row = (c, name, l) => `<tr><td style="color:${c}">●</td><td>${esc(name)}</td></tr><tr><td></td><td>${l.speed ? l.speed[i].toFixed(0) + " km/h" : ""} · brake ${(l.brake[i] * 100).toFixed(0)}% · throttle ${(l.throttle[i] * 100).toFixed(0)}%<br>${side(l)}${room(l) ? " · " + room(l) : ""}</td></tr>`;
+    rd.innerHTML = `<b>${Math.round(d.dist[i])} m</b> into the lap<table>${row("#4da3ff", d.single ? "Lap " + S.target : "Reference", d.ref)}${d.single ? "" : row("#ff6b6b", "Lap " + S.check, d.other)}</table>`;
+  },
+
+
+  // ---------------------------------------------------------------- playback: both laps in real time, each at its own pace
+  play: { t: 0, on: false, raf: 0, last: 0 },
+
+  duration() {
+    const d = TV.d; if (!d) return 0;
+    const end = l => l && l.time && l.time.length ? l.time[l.time.length - 1] : 0;
+    return Math.max(end(d.ref), d.single ? 0 : end(d.other));
+  },
+
+  // where in a lap's own time array is time t: {i, f} so that the moment lies between point i and i + 1
+  locate(time, t) {
+    const n = time.length;
+    if (t <= time[0]) return { i: 0, f: 0 };
+    if (t >= time[n - 1]) return { i: n - 2, f: 1 };
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (time[mid] <= t) lo = mid; else hi = mid; }
+    const span = time[hi] - time[lo];
+    return { i: lo, f: span > 0 ? (t - time[lo]) / span : 0 };
+  },
+
+  lerp(a, b, f) { return a == null ? b : b == null ? a : a + (b - a) * f; },
+
+  hudInit() {
+    const d = TV.d, box = $("tvHud");
+    if (!d) { box.innerHTML = ""; return; }
+    const wheel = id => `<svg class="wheel" viewBox="0 0 60 60" aria-hidden="true"><g id="${id}Wheel">
+        <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="5"/>
+        <circle cx="30" cy="30" r="6" fill="currentColor"/>
+        <line x1="6" y1="33" x2="24" y2="31" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+        <line x1="54" y1="33" x2="36" y2="31" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+        <line x1="30" y1="36" x2="30" y2="52" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+        <rect x="27" y="2" width="6" height="9" rx="2" fill="#ffb84d"/></g></svg>`;
+    const card = (id, colour, who, name, final) => `<div class="hud" id="${id}" style="border-left-color:${colour}" title="Click to make the map follow this lap">
+        <span class="follow">following</span>
+        <div class="hname">${who}<b title="${esc(name)}">${esc(name)}</b><div class="hlap" title="The lap's time">${final != null ? lapT(final) : "–"}</div><div class="hrun" id="${id}Run">0:00.0 now</div></div>
+        ${wheel(id)}
+        <div><div class="hspeed"><b id="${id}Speed">–</b><small>km/h</small></div><div class="steerval" id="${id}Steer">&nbsp;</div></div>
+        <div class="bars"><div class="bar brk"><i id="${id}Brk"></i><span>BRAKE</span><em id="${id}BrkN">0%</em></div>
+          <div class="bar thr"><i id="${id}Thr"></i><span>THROTTLE</span><em id="${id}ThrN">0%</em></div></div></div>`;
+    const nameRef = d.single ? "Lap " + S.target : targetLabel(false).replace(" (target)", "");
+    const refFinal = isSaved(S.target) ? (savedInfo(S.target) || {}).lap_time : (lapInfo(S.target) || {}).time;
+    const chkFinal = (lapInfo(S.check) || {}).time;
+    TV.final = { ref: refFinal, chk: chkFinal };
+    box.innerHTML = card("hudRef", "#4da3ff", "Reference", nameRef, refFinal) + (d.single ? "" : card("hudChk", "#ff6b6b", "Checking", "Lap " + S.check, chkFinal));
+    $("hudRef").onclick = () => TV.setFollow(TV.follow === "ref" ? null : "ref");
+    if ($("hudChk")) $("hudChk").onclick = () => TV.setFollow(TV.follow === "chk" ? null : "chk");
+    TV.markFollow();
+  },
+
+  // the map follows one of the two laps (its dot stays in the middle), or nothing
+  follow: null,
+  setFollow(who) { TV.follow = who; TV.markFollow(); TV.frame(); },
+  markFollow() {
+    for (const [who, id] of [["ref", "hudRef"], ["chk", "hudChk"]]) { const el = $(id); if (el) el.classList.toggle("following", TV.follow === who); }
+  },
+
+  // put numbers into one widget. v = {speed, steer, brake, throttle} or null
+  hudSet(id, v) {
+    const g = $(id + "Wheel"); if (!g) return;
+    if (!v) { return; }
+    const steer = v.steer;                                   // the game gives steering as a percentage of full lock (+ = right)
+    const deg = Math.max(-300, Math.min(300, steer * 2.7));  // drawn as if full lock were about 270 degrees of wheel
+    g.setAttribute("transform", `rotate(${deg.toFixed(1)} 30 30)`);
+    $(id + "Speed").textContent = v.speed.toFixed(0);
+    $(id + "Steer").textContent = Math.abs(steer) < 1 ? "straight" : (steer > 0 ? "right " : "left ") + Math.abs(steer).toFixed(0) + "%";
+    $(id + "Brk").style.width = (v.brake * 100).toFixed(0) + "%"; $(id + "BrkN").textContent = (v.brake * 100).toFixed(0) + "%";
+    $(id + "Thr").style.width = (v.throttle * 100).toFixed(0) + "%"; $(id + "ThrN").textContent = (v.throttle * 100).toFixed(0) + "%";
+  },
+
+  valuesAt(l, i, f) {                                          // a lap's inputs between point i and i + 1
+    const j = Math.min(i + 1, l.speed.length - 1);
+    return { speed: TV.lerp(l.speed[i], l.speed[j], f), steer: TV.lerp(l.steer[i], l.steer[j], f),
+             brake: TV.lerp(l.brake[i], l.brake[j], f), throttle: TV.lerp(l.throttle[i], l.throttle[j], f) };
+  },
+
+  // show the moment t (seconds from the start of both laps): the two dots, the two widgets, the gap between the laps
+  frame() {
+    const d = TV.d, T = TV.duration(); if (!d || !TV.pos) return;
+    const t = TV.play.t, fmt = x => { const m = Math.floor(x / 60); return m + ":" + (x - m * 60).toFixed(1).padStart(4, "0"); };
+    TV.cur = {};
+    const one = (key, l, pos, markerId, hudId) => {
+      const m = $(markerId); if (!l || !l.time || !pos) { if (m) m.setAttribute("visibility", "hidden"); return; }
+      const { i, f } = TV.locate(l.time, t), a = pos[i], b = pos[Math.min(i + 1, pos.length - 1)] || a;
+      if (m && a) {
+        const x = TV.lerp(a[0], b[0], f), y = TV.lerp(a[1], b[1], f);
+        m.setAttribute("cx", x); m.setAttribute("cy", y); m.setAttribute("visibility", "visible"); TV.cur[key] = [x, y];
+      }
+      TV.hudSet(hudId, TV.valuesAt(l, i, f));
+      const end = l.time[l.time.length - 1], fin = TV.final && TV.final[key], run = $(hudId + "Run");
+      if (run) run.textContent = (t >= end && fin != null ? lapT(fin) + " finished" : fmt(Math.min(t, end)) + " now");
+    };
+    one("ref", d.ref, TV.pos.ref, "tvMRef", "hudRef");
+    if (!d.single) one("chk", d.other, TV.pos.chk, "tvMChk", "hudChk");
+    // the gap, as a number beside the checked lap's dot: how much later it reaches the spot where the reference is right now
+    // (+ = behind the reference, - = ahead of it)
+    const g = $("tvGap");
+    if (g) {
+      let shown = false;
+      if (!d.single && d.delta && d.ref.time && TV.cur.chk) {
+        const { i, f } = TV.locate(d.ref.time, t), j = Math.min(i + 1, d.delta.length - 1), gap = TV.lerp(d.delta[i], d.delta[j], f);
+        if (gap != null) {
+          g.textContent = Math.abs(gap) < 0.005 ? "0.00 s" : (gap > 0 ? "+" : "\u2212") + Math.abs(gap).toFixed(2) + " s";
+          g.setAttribute("fill", Math.abs(gap) < 0.005 ? "#cfd3de" : gap > 0 ? "#ff8a80" : "#6be3a2");   // behind: red, ahead: green
+          TV.gapAt = TV.cur.chk; TV.placeGap(); shown = true;
+        }
+      }
+      g.setAttribute("visibility", shown ? "visible" : "hidden");
+    }
+    if (TV.follow && TV.cur[TV.follow] && TV.vb) {                                // keep the followed car in the middle of the map
+      const [x, y] = TV.cur[TV.follow], v = TV.vb;
+      TV.box = { x: x - v.w / 2, y: y - v.h / 2, w: v.w, h: v.h };
+      TV.apply();
+    }
+    $("tvClock").textContent = fmt(t) + " / " + fmt(T);
+    $("tvSlider").value = T > 0 ? Math.round(t / T * 1000) : 0;
+    $("tvPlay").innerHTML = TV.play.on ? "&#10074;&#10074; Pause" : (t >= T && T > 0 ? "&#8635; Replay" : "&#9654; Play");
+  },
+
+  playToggle() {
+    const P = TV.play, T = TV.duration(); if (!T) return;
+    if (P.on) { TV.stop(); return; }
+    if (P.t >= T - 0.05) P.t = 0;                              // at the end: start again
+    P.on = true; P.last = 0;
+    P.raf = requestAnimationFrame(TV.tick);
+    TV.frame();
+  },
+
+  tick(ts) {
+    const P = TV.play, T = TV.duration();
+    if (!P.on) return;
+    if (P.last) P.t += (ts - P.last) / 1000;
+    P.last = ts;
+    if (P.t >= T) { P.t = T; P.on = false; }
+    TV.frame();
+    if (P.on) P.raf = requestAnimationFrame(TV.tick);
+  },
+
+  stop() {
+    const P = TV.play;
+    P.on = false; if (P.raf) cancelAnimationFrame(P.raf); P.raf = 0;
+    TV.frame();
+  },
+
+  init() {
+    const svg = $("tvSvg");
+    $("tvPlay").onclick = () => TV.playToggle();
+    $("tvSlider").oninput = e => { TV.play.t = e.target.value / 1000 * TV.duration(); TV.frame(); };
+    $("tv").addEventListener("close", () => TV.stop());
+    $("mapCard").addEventListener("click", () => TV.open());
+    $("tvClose").onclick = () => $("tv").close();
+    $("tvReset").onclick = () => { TV.box = { ...TV.home }; TV.apply(); };
+    for (const id of ["tvColor", "tvRef", "tvChk", "tvEdges"]) $(id).onchange = () => TV.render(false);
+    svg.addEventListener("wheel", e => { e.preventDefault(); TV.zoom(e, e.deltaY < 0 ? 0.8 : 1.25); }, { passive: false });
+    svg.addEventListener("dblclick", () => { TV.box = { ...TV.home }; TV.apply(); });
+    svg.addEventListener("pointerdown", e => { if (TV.follow) TV.setFollow(null); TV.drag = { x: e.clientX, y: e.clientY, box: { ...TV.vb } }; svg.setPointerCapture(e.pointerId); svg.classList.add("drag"); });
+    svg.addEventListener("pointermove", e => {
+      if (TV.drag) {
+        const r = svg.getBoundingClientRect(), k = TV.drag.box.w / r.width;
+        TV.box = { x: TV.drag.box.x - (e.clientX - TV.drag.x) * k, y: TV.drag.box.y - (e.clientY - TV.drag.y) * k, w: TV.drag.box.w, h: TV.drag.box.h };
+        TV.apply();
+      } else TV.hover(e);
+    });
+    const up = e => { TV.drag = null; svg.classList.remove("drag"); };
+    svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);
+    svg.addEventListener("pointerleave", () => { if (!TV.drag) TV.mark(null); });
+    window.addEventListener("resize", () => { if ($("tv").open) TV.apply(); });
+    $("tv").addEventListener("click", e => { if (e.target === $("tv")) $("tv").close(); });
+  },
+};
+TV.init();
 App.start("laps", (file, keep) => loadSession(file, keep));
 </script>
 </body>

@@ -71,6 +71,11 @@ from *Saved laps and friends' laps* too. A friend's lap belongs to the track, so
 it only appears when you open a session on the same track. It is never counted as one of your own tries in
 *What to practise*. Lap files from other people are checked before they are kept.
 
+**Sessions are grouped by day.** The game starts a new file every time you leave the garage. Files that carry on from each other
+(same lap counter and odometer) are one session, and so are all runs from the **same day** (your own time zone) with the
+**same track, layout, car and session type**, even when the game was restarted in between. Practice, qualifying and race
+stay separate sessions. The laps of the runs are numbered one after another, so a day of practice is one list of laps.
+
 **Session names.** The picker names each session from what the file says, newest first: start time (your own time
 zone), circuit, session type, car, and how many runs it has, for example
 `Wed 18 Nov 20:28 · Le Mans · Practice · McLaren 720S LMGT3 Evo`. Everyday circuit names come from the `short` field in
@@ -106,6 +111,20 @@ What it will and won't do:
 
 The footer of each page says what it is set to, how big the telemetry folder is, and what the last check did.
 
+### What SimTracker itself keeps (and its limits)
+
+Nothing here grows without limit, however much you drive:
+
+| What | Where | How big it can get |
+|---|---|---|
+| Track surface (the edges) | `data/track_surface/<track>.json` | **One file per track layout**, about 20-90 KB, whatever the number of laps. It stores running averages, not laps; once a point of the track has about 200 laps in it, a new lap only nudges the average (so it also follows a track that changes). It remembers which sessions it has used (a short entry each, the newest 400). |
+| Personal best | `data/saved_laps/<track>/<car>/best.json` | One file per track and car; the laps it replaces go to `history/`, **newest 10 kept**, older ones deleted. |
+| Laps you saved / friends' laps | same folders | Only what you save or import; you delete them yourself. |
+| Turn names and positions | `data/tracks/<track>.json` | One small file per track. |
+
+The only things that pile up are the game's own telemetry files, which the automatic clean-up above deletes after 30 days
+(and *Manage sessions…* lets you delete by hand).
+
 ### Track layout drawing
 
 At the top left of **Compare laps** a card shows the layout of the circuit you're driving, drawn in the page's own
@@ -121,8 +140,47 @@ it appears as soon as you have one clean lap.
 **Hover dot**: when you move the mouse over the charts, a dot on the map shows where on the track that point of the
 lap is. To do this the app lays your lap's GPS shape (the game's own coordinates: not real-world ones, but the shape
 is true) over the map, trying every start point and both directions, and keeps the best fit (code in
-`simtracker/analysis/layout.py`). It is checked automatically: a poor fit shows no dot rather than a wrong one. No dot
-for the three maps drawn as a filled band (COTA, Paul Ricard, Road Atlanta), or when a session file has no GPS.
+`simtracker/analysis/layout.py`). It is checked automatically: when the fit is poor, that session's map is drawn from the
+lap's own GPS instead of showing a wrong dot. The only case without a dot is a session file that has no GPS.
+
+### Track view (racing lines)
+
+Click the track card (or *Enlarge*) to open a big, zoomable map with the racing line of the reference lap (blue) and the lap
+you are checking (red). **Scroll to zoom, drag to move, double-click to zoom out**; move the pointer over the track to read
+both laps at that spot: distance, speed, brake and throttle, how far left/right of the track's centre line you were and how
+much room you had to the track edge. *Colour the lines by* speed, braking, throttle or **room to the track edge** (red =
+at the edge, green = 6 m or more to spare) shows where you brake, coast and how wide you take a corner. In the colour modes
+the two laps are drawn as parallel strips that are kept at least a few pixels apart (the reference on the left, in the
+direction of travel), so you can compare their colours even when zoomed out; zoom in and they move to where they really were.
+
+The lines come from the game's GPS positions, which turn out to be accurate to well under a metre (they agree with the
+game's own `Path Lateral` channel). The game also records where the nearest track edge is (`Track Edge`). From that, the big view draws the **track surface**
+under the racing lines, so you can see how wide and how tight you take a corner. Each lap shows the edge on the side it
+ran on; **what every lap saw is remembered per track** in `data/track_surface/<track>.json` (added when a session is
+opened, and again just before old telemetry is deleted; a lap is only ever counted once), so the surface gets more
+accurate the more you drive a track, across sessions and days. Where no lap has gone near an edge yet it is filled in
+from the places that did, or put the usual width of that stretch away from the other edge. It can be switched off with
+*Track surface*. Laps of another layout of the same circuit are kept apart (they have their own file).
+
+The **start / finish line** is a green line across the track in the big view, and a green tick on the small map.
+
+Every track gets a dot and a start/finish tick on the small map. COTA, Paul Ricard and Road Atlanta, which were drawn as a
+thin filled outline of the road, are now stored as the centre line of that outline like the other maps. If a lap ever
+does not fit a drawing, that session's map is drawn from the lap's own GPS instead, so there is always a dot.
+Laps you save, export or import now carry their racing line, so you can compare against a saved lap or a friend's lap on
+the map too. Laps saved by older versions have no line (your personal best gets one the next time its session is opened).
+
+**Play the laps.** At the bottom of the big view, **Play** runs both laps in real time, like a race: they start together and
+each goes at its own pace, so the faster lap pulls ahead and you can watch the gap build in the corners. Two dots (blue and
+red) move along the track, and the two panels at the top follow them: each shows the lap's time and its own running clock,
+a steering wheel that turns with the steering input (drawn as if full lock were about 270 degrees of wheel; the game gives
+steering as a percentage of full lock), the brake and throttle pressure as bars, and the speed in km/h. The **gap between the laps** is a number beside the red dot on the map, always the same size however far you zoom:
+how much later the checked lap reaches the spot where the reference is right now (+0.47 s = behind the reference, shown in red;
+a minus sign and green = ahead). Pointing at a spot on the track shows the gap at that spot.
+**Click a panel to make the map follow that lap**: its dot stays in the middle and you keep your own zoom; click the panel
+again, or drag the map, to stop following. The slider jumps to any moment, and **Replay** starts again. When it is not
+playing, pointing at the track shows the same panels for that spot. The *Steering* chart on the main page is now labelled
+in % too (it said degrees, but the game's number is a percentage of full lock).
 
 ### Track profiles
 
