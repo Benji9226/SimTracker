@@ -52,3 +52,4 @@ MAPS_DIR = BUILTIN_DATA / "track_maps"        # the track layout drawings (and t
 TRACKS_DIR = DATA_DIR / "tracks"              # one profile per track: where its turns are, and what they are called
 SURFACE_DIR = DATA_DIR / "track_surface"       # what is known of each track's surface, built up lap by lap
 SAVED_DIR = DATA_DIR / "saved_laps"           # your saved laps, per track and car
+PENDING_DIR = DATA_DIR / "rivals_pending"     # rival laps heard before you have a best lap on that track (see rivals.py)

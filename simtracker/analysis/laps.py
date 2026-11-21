@@ -10,9 +10,24 @@ M_PER_DEG = 110574.0   # metres per degree of latitude
 GRID_STEP_M = 5.8      # one comparison point about every 5.8 m, on any track (1000 points on Monza)
 
 
+START_END_GAP_M = 60.0       # a lap whose first and last positions are further apart than this did not run from the line to the line
+
+
 def grid_points(length_m: float) -> int:
     """How many points to sample a lap of this length at, so every track gets the same resolution."""
     return int(min(4000, max(500, round(length_m / GRID_STEP_M))))
+
+
+def _typical_length(lengths: pd.Series) -> float:
+    """The length of a normal lap: the length that most laps share (within 3%). A lap that is far too long (a recording whose laps were
+    joined together by mistake, e.g. when an online session is split in several files) or too short (a lap cut short) is then never mistaken
+    for the track length, however many such laps there are, as long as most laps are normal."""
+    v = lengths.dropna().to_numpy(float)
+    if not len(v):
+        return float("nan")
+    close = np.abs(v[None, :] / v[:, None] - 1) <= 0.03          # close[i, j]: lap j is about as long as lap i
+    best = max(range(len(v)), key=lambda i: (int(close[i].sum()), v[i]))
+    return float(np.median(v[close[best]]))
 
 
 def lap_summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -42,8 +57,20 @@ def lap_summary(df: pd.DataFrame) -> pd.DataFrame:
     pool = (clean if len(clean) else out)["length_m"]
     # Partial laps (the lap you are still driving, or one cut short) must not drag the reference
     # length down: take the median of the laps that are at least 90% as long as the longest one.
-    ref_len = pool[pool >= 0.9 * pool.max()].median()
+    ref_len = _typical_length(pool)
     out["length_ok"] = (out["length_m"] / ref_len).between(0.97, 1.03)
+    # The distance of a real lap only ever grows with time. If it jumps back, the lap is made of rows of two different laps (two recordings
+    # whose clocks overlap, joined into one session), so it is not a lap that can be compared or drawn.
+    srt = df if df["t"].is_monotonic_increasing else df.sort_values("t", kind="stable")
+    back = srt["dist"].diff().groupby(srt["lap"]).min().reindex(out.index).fillna(0.0)
+    out["length_ok"] = out["length_ok"] & (back > -30.0)
+    # A full lap starts and ends at the same place (the line). A lap that starts elsewhere, like the first lap of a race (from the
+    # grid slot, behind the line) or a recording that began mid-lap, has the same length but is shifted along the track, so it would
+    # be compared and drawn in the wrong place. Such laps are not full laps.
+    if "lat" in df.columns and df["lat"].notna().any():
+        first, last = g[["lat", "lon"]].first(), g[["lat", "lon"]].last()
+        gap = np.hypot((last["lat"] - first["lat"]) * M_PER_DEG, (last["lon"] - first["lon"]) * 111320.0 * np.cos(np.radians(first["lat"])))
+        out["length_ok"] = out["length_ok"] & (gap.fillna(0) < START_END_GAP_M)
     out["complete"] = out["length_ok"] & ~out["pit"] & out["valid"]
     out["reason"] = np.where(out["pit"], "pit", np.where(~out["length_ok"], "unfinished", np.where(~out["valid"], "invalid", "")))
     return out

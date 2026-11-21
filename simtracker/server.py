@@ -21,6 +21,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import numpy as np
+import pandas as pd
 
 from simtracker.analysis.consistency import turn_stats
 from simtracker.analysis.corners import corner_report
@@ -32,6 +33,7 @@ from simtracker.version import VERSION
 from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
 from simtracker.storage import profiles, saved_laps, surface
 from simtracker.storage.profiles import track_key
+from simtracker import rivals
 from simtracker.setup import model as setup_model
 from simtracker.telemetry import cleanup
 from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
@@ -339,7 +341,22 @@ def _auto_best(name: str, df, summary) -> dict:
         return {"updated": False, "lap_time": lap_time}
     if best and lap_time >= best["lap_time"] - 0.0005:       # nothing faster: skip the resampling
         return {"updated": False, "lap_time": best["lap_time"]}
-    return saved_laps.update_best(info, here, lap, lap_time, _lap_grid(df, summary, lap), _lap_setup(files, lap_time))
+    result = saved_laps.update_best(info, here, lap, lap_time, _lap_grid(df, summary, lap), _lap_setup(files, lap_time))
+    if result.get("updated"):
+        try:
+            rivals.prune(info, lap_time)                    # rivals only count while they are faster than your best
+        except Exception:
+            pass
+    return result
+
+
+def _pb_and_rivals(name: str, df, summary) -> dict:
+    pb = _auto_best(name, df, summary)
+    try:
+        rivals.resolve_pending()                # rival laps that waited for your best lap on this track
+    except Exception:
+        pass
+    return pb
 
 
 def api_laps(name: str) -> dict:
@@ -357,7 +374,7 @@ def api_laps(name: str) -> dict:
     return {"laps": laps,
             "ref": full[0]["lap"] if full else None,
             "other": full[1]["lap"] if len(full) > 1 else None,
-            "pb": _auto_best(name, df, s)}
+            "pb": _pb_and_rivals(name, df, s)}
 
 
 def api_turns(name: str, include_saved: bool = True) -> dict:
@@ -386,34 +403,83 @@ def _line(a) -> list:
     return [None if not np.isfinite(v) else round(float(v), 2) for v in np.asarray(a, float)]
 
 
-def api_compare(name: str, ref: str, other_lap: int) -> dict:
-    """Compare lap `other_lap` of this session with `ref`: a lap number of this session, or "saved:<id>"."""
+def _align(grid: pd.DataFrame, dist: np.ndarray, ref_len: float) -> pd.DataFrame:
+    """A saved lap resampled onto the distance points of another lap (the laps may differ a little in measured length)."""
+    own_len = float(grid["dist"].iloc[-1])
+    at = np.asarray(dist, float) * (own_len / ref_len)
+    out = {"dist": np.asarray(dist, float)}
+    for c in grid.columns:
+        if c != "dist":
+            out[c] = np.interp(at, grid["dist"].to_numpy(float), grid[c].to_numpy(float))
+    return pd.DataFrame(out)
+
+
+def _sectors(info: dict, ref_df, other, saved_ids: list) -> list | None:
+    """Time in each of the three sectors for both laps, using the sector lines found from the rival laps recorded on this track."""
+    lines = []
+    for rec in saved_laps.rival_records(info):
+        if rec.get("sector_m") and rec.get("length_m"):
+            lines.append([x / rec["length_m"] for x in rec["sector_m"]])
+    if not lines:
+        return None
+    frac = np.median(np.array(lines), axis=0)
+    ref_len = float(ref_df["dist"].iloc[-1])
+    cuts = [float(f) * ref_len for f in frac]
+    out = []
+    for n, (a, b_) in enumerate([(0.0, cuts[0]), (cuts[0], cuts[1]), (cuts[1], ref_len)], 1):
+        def span(g):
+            t = lambda x: float(np.interp(x, g["dist"].to_numpy(float), g["time"].to_numpy(float)))
+            return t(b_) - t(a)
+        r, o = span(ref_df), span(other)
+        out.append({"n": n, "ref": round(r, 3), "other": round(o, 3), "diff": round(o - r, 3)})
+    return out
+
+
+def api_compare(name: str, ref: str, other: str) -> dict:
+    """Compare the lap `other` with `ref`. Each is a lap number of this session or "saved:<id>" (your best, a lap you saved, a friend's or a rival's)."""
     df = _df(name)
-    saved = None
+    info = _info(name)["info"]
     summary = lap_summary(df)            # any full-length lap can be compared, also out laps and laps that did not count
-    for lap in ([] if ref.startswith("saved:") else [int(ref)]) + [other_lap]:
-        if lap not in summary.index or not bool(summary.loc[lap, "length_ok"]):
-            raise ValueError(f"Lap {lap} is not a full lap, so it can't be compared.")
-    if ref.startswith("saved:"):
-        loaded = saved_laps.load_grid(_info(name)["info"], ref[len("saved:"):])
+    for item in (ref, other):
+        if not str(item).startswith("saved:"):
+            lap = int(item)
+            if lap not in summary.index or not bool(summary.loc[lap, "length_ok"]):
+                raise ValueError(f"Lap {lap} is not a full lap, so it can't be compared.")
+
+    def saved_grid(item: str):
+        loaded = saved_laps.load_grid(info, item[len("saved:"):])
         if not loaded:
             raise ValueError("That saved lap no longer exists.")
-        saved, grid = loaded
-        ref_df, other, delta = compare_to_grid(df, other_lap, grid)
-        single = False
+        return loaded
+
+    saved, single = None, False
+    ref_saved, other_saved = ref.startswith("saved:"), other.startswith("saved:")
+    if not ref_saved and not other_saved:
+        ref_df, other_df, delta = compare_laps(df, int(ref), int(other))
+        single = int(ref) == int(other)       # one lap on its own, nothing to compare against
+    elif ref_saved and not other_saved:
+        saved, grid = saved_grid(ref)
+        ref_df, other_df, delta = compare_to_grid(df, int(other), grid)
     else:
-        ref_df, other, delta = compare_laps(df, int(ref), other_lap)
-        single = int(ref) == other_lap       # one lap on its own, nothing to compare against
+        if ref_saved:
+            saved, ref_df = saved_grid(ref)
+        else:
+            length = float(summary.loc[int(ref), "length_m"])
+            ref_df = lap_on_grid(df, int(ref), length, grid_points(length))
+        _, other_grid = saved_grid(other)
+        other_df = _align(other_grid, ref_df["dist"].to_numpy(float), float(ref_df["dist"].iloc[-1]))
+        delta = other_df["time"] - ref_df["time"]
     zones = _zones_for(name)(ref_df, float(ref_df["dist"].iloc[-1]))
     return {
         "dist": _clean(ref_df["dist"]),
         "delta": _clean(delta),
         "ref": {**{c: _clean(ref_df[c]) for c in _TRACE if c in ref_df.columns}, **{c: _line(ref_df[c]) for c in _LINE if c in ref_df.columns}},
-        "other": {**{c: _clean(other[c]) for c in _TRACE if c in other.columns}, **{c: _line(other[c]) for c in _LINE if c in other.columns}},
+        "other": {**{c: _clean(other_df[c]) for c in _TRACE if c in other_df.columns}, **{c: _line(other_df[c]) for c in _LINE if c in other_df.columns}},
         "single": single,
         "saved": saved,
         "final_delta": round(float(delta.iloc[-1]), 3),
-        "corners": corner_report(ref_df, other, delta, zones),
+        "corners": corner_report(ref_df, other_df, delta, zones),
+        "sectors": None if single else _sectors(info, ref_df, other_df, [ref, other]),
     }
 
 
@@ -596,11 +662,13 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/laps":
                 data = api_laps(q["file"])
             elif u.path == "/api/compare":
-                data = api_compare(q["file"], q["ref"], int(q["other"]))
+                data = api_compare(q["file"], q["ref"], q["other"])
             elif u.path == "/api/edges":
                 data = api_edges(q["file"])
             elif u.path == "/api/saved":
                 data = api_saved(q["file"])
+            elif u.path == "/api/rivals":
+                data = rivals.status()
             else:
                 return self._send(b"not found", "text/plain", 404)
             self._send(json.dumps(data).encode(), "application/json")
@@ -690,6 +758,7 @@ def main():
     threading.Thread(target=_cleanup_loop, daemon=True).start()
     threading.Thread(target=backfill_surface, daemon=True).start()
     threading.Thread(target=backfill_best_setups, daemon=True).start()
+    rivals.start()                                  # listens to the game for the fastest laps of other drivers (see rivals.py)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

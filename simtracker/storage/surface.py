@@ -25,6 +25,7 @@ from simtracker.storage.profiles import track_key
 _lock = threading.Lock()
 LENGTH_TOLERANCE = 0.03
 MAX_SESSIONS = 400
+FORMAT = 3                  # 3: laps that did not start at the line, and laps of a wrong length, are no longer counted (older files contain them, and are not used)
 
 
 def _path(info: dict):
@@ -35,6 +36,8 @@ def _load(info: dict):
     """(accumulator, {session id: last lap used}) or (None, {})."""
     try:
         d = json.loads(_path(info).read_text(encoding="utf-8"))
+        if d.get("v") != FORMAT:
+            return None, {}
         sessions = {str(k): int(v) for k, v in d.get("sessions", {}).items()}
         for key in d.get("seen", []):                           # files from the first version listed every lap as "session:lap"
             sid, _, lap = str(key).rpartition(":")
@@ -50,8 +53,15 @@ def _save(info: dict, acc: Accumulator, sessions: dict) -> None:
         sessions.pop(next(iter(sessions)))
     path = _path(info)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        try:
+            old_version = json.loads(path.read_text(encoding="utf-8")).get("v")
+            if old_version != FORMAT:
+                os.replace(path, path.with_suffix(f".v{old_version or 1}.old"))         # keep the earlier file once, in case it is wanted
+        except (OSError, ValueError):
+            pass
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({**acc.to_json(), "sessions": sessions}, separators=(",", ":")), encoding="utf-8")
+    tmp.write_text(json.dumps({**acc.to_json(), "sessions": sessions, "v": FORMAT}, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, path)
 
 

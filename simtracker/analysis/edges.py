@@ -38,6 +38,41 @@ def _smooth(a: np.ndarray, k: int = 5) -> np.ndarray:
     return np.convolve(np.r_[[a[0]] * k, a, [a[-1]] * k], np.ones(k) / k, "same")[k:-k]
 
 
+OUTLIER_WINDOW = 9             # points (about 50 m): a reading that differs from the middle of its neighbours by more than OUTLIER_M is thrown away
+OUTLIER_M = 0.8
+EDGE_SIGMA = 2.5               # points (about 15 m): how much the edges are smoothed along the track
+CENTRE_SIGMA = 1.0
+MIN_WIDTH_M = 4.0
+
+
+def _circular(a: np.ndarray, r: int) -> np.ndarray:
+    """The array with its last r values in front and its first r values behind (a lap is a loop: the start line is not an end)."""
+    return np.r_[a[-r:], a, a[:r]]
+
+
+def _smooth_loop(a: np.ndarray, sigma: float) -> np.ndarray:
+    """Gaussian smoothing along a loop. Unknown values (NaN) stay unknown and do not pull their neighbours."""
+    if sigma <= 0 or len(a) < 8:
+        return a
+    r = int(3 * sigma) + 1
+    k = np.exp(-0.5 * (np.arange(-r, r + 1) / sigma) ** 2)
+    ok = np.isfinite(a)
+    num = np.convolve(_circular(np.where(ok, a, 0.0), r), k, "valid")
+    den = np.convolve(_circular(ok.astype(float), r), k, "valid")
+    return np.where(ok & (den > 0), num / np.maximum(den, 1e-9), np.nan)
+
+
+def _drop_outliers(a: np.ndarray, window: int = OUTLIER_WINDOW, tol: float = OUTLIER_M) -> np.ndarray:
+    """NaN where a reading is far from the middle (median) of the readings around it: pit lane entrances, kerbs, a wall seen once."""
+    r = window // 2
+    ok = np.isfinite(a)
+    if ok.sum() < window:
+        return a
+    padded = _circular(a, r)
+    med = np.array([np.nanmedian(padded[i:i + window]) if np.isfinite(padded[i:i + window]).any() else np.nan for i in range(len(a))])
+    return np.where(ok & (np.abs(a - med) > tol), np.nan, a)
+
+
 def _right_normal(x: np.ndarray, y: np.ndarray):
     """Unit vector to the right of the direction of travel (x east, y north) along a path."""
     tx, ty = np.gradient(_smooth(x)), np.gradient(_smooth(y))
@@ -93,8 +128,11 @@ class Accumulator:
         return a
 
 
-def solve(acc: Accumulator) -> dict | None:
-    """{"length", "laps_used", "left": [[x, y] or None ...], "right": [...]} in metres (x east, y north), or None."""
+def solve(acc: Accumulator, clean: bool = True) -> dict | None:
+    """{"length", "laps_used", "left": [[x, y] or None ...], "right": [...]} in metres (x east, y north), or None.
+
+    With `clean` (the default) the edges are tidied before they are drawn: readings that do not fit their neighbours are dropped, and the
+    edges are smoothed along the track, so straights are straight and the outline has no spikes. (`clean=False` gives the raw averages.)"""
     n = acc.n
     if acc.laps == 0 or not (acc.cnt["cx"] > 0).any():
         return None
@@ -102,14 +140,27 @@ def solve(acc: Accumulator) -> dict | None:
     cx, cy = _fill(mean["cx"], MAX_FILL_POINTS), _fill(mean["cy"], MAX_FILL_POINTS)
     if not (np.isfinite(cx).all() and np.isfinite(cy).all()):
         return None
+    if clean:
+        cx, cy = _smooth_loop(cx, CENTRE_SIGMA), _smooth_loop(cy, CENTRE_SIGMA)
     rx, ry = _right_normal(cx, cy)
-    left, right = _fill(mean["left"], MAX_FILL_POINTS), _fill(mean["right"], MAX_FILL_POINTS)
+    left, right = mean["left"], mean["right"]
+    if clean:
+        left, right = _drop_outliers(left), _drop_outliers(right)
+    left, right = _fill(left, MAX_FILL_POINTS), _fill(right, MAX_FILL_POINTS)
+    if clean:
+        left, right = _smooth_loop(left, EDGE_SIGMA), _smooth_loop(right, EDGE_SIGMA)
     both = np.isfinite(left) & np.isfinite(right)
     if both.any():                                          # where only one edge is known, the other is the usual width away
         idx = np.arange(n)
         width = np.interp(idx, idx[both], (right - left)[both])
+        if clean:
+            width = np.maximum(_smooth_loop(width, 2 * EDGE_SIGMA), MIN_WIDTH_M)
         left = np.where(np.isfinite(left), left, right - width)
         right = np.where(np.isfinite(right), right, left + width)
+        if clean:                                           # never narrower than a road
+            narrow = np.isfinite(left) & np.isfinite(right) & (right - left < MIN_WIDTH_M)
+            mid = (left + right) / 2
+            left, right = np.where(narrow, mid - MIN_WIDTH_M / 2, left), np.where(narrow, mid + MIN_WIDTH_M / 2, right)
 
     def side(lat: np.ndarray):
         px, py = cx + lat * rx, cy + lat * ry

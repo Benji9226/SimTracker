@@ -36,7 +36,7 @@ _CHANNELS = ("dist", "time", "speed", "throttle", "brake", "steer", "gear", "x",
 _PIN_ID = re.compile(r"^pin-[a-z0-9-]+$")
 _FRIEND_ID = re.compile(r"^friend-[a-f0-9]{10}$")
 _META = ("id", "kind", "track", "layout", "car", "car_model", "car_class", "session", "lap", "lap_time",
-         "length_m", "date", "saved_at", "driver")
+         "length_m", "date", "saved_at", "driver", "rival")
 FORMAT = "simtracker-lap"
 
 
@@ -50,6 +50,27 @@ def _dir(info: dict):
 
 def _friends_dir(info: dict):
     return SAVED_DIR / track_key(info) / "_friends"
+
+
+def friends_dir(info: dict):
+    return _friends_dir(info)
+
+
+def write_record(path, rec: dict) -> None:
+    _write(path, rec)
+
+
+def rival_records(info: dict) -> list[dict]:
+    """The laps of other drivers recorded from the game (see rivals.py) for this track, with their data (metadata + grid)."""
+    out = []
+    for p in _friends_dir(info).glob("friend-*.json"):
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if rec.get("rival"):
+            out.append(rec)
+    return out
 
 
 HISTORY_KEEP = 10          # replaced personal bests kept per track and car; older ones are deleted

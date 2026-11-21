@@ -131,6 +131,7 @@
     </div>
     <div class="card">
       <h2>1 · Pick the laps to compare</h2>
+      <div class="small" id="recStatus" role="status" style="margin:-2px 0 6px"></div>
       <div class="scroll laps"><table id="laps"><thead><tr><th class="rc" title="Reference: the lap you compare against (blue line)" style="color:#4da3ff">Ref</th><th class="rc" title="The lap you are checking (red line)" style="color:#ff6b6b">Check</th><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
       <label class="small" title="Out laps, pit laps and laps with track limits. They can be compared, but never count as a best lap or in 'What to practise'."><input type="checkbox" id="hideBad"> Hide laps that don't count</label>
       <div class="actions">
@@ -157,6 +158,7 @@
     <div id="pbnote"></div>
     <div id="summary"></div>
     <div id="chips"></div>
+    <div id="sectors"></div>
     <div id="msg">Loading…</div>
     <div id="chart"></div>
     <p class="caption" id="caption"></p>
@@ -214,9 +216,25 @@ const comparableLaps = () => S.laps.filter(l => l.comparable);      // every ful
 const isSaved = t => typeof t === "string";
 const savedInfo = t => S.saved.find(r => "saved:" + r.id === t);
 const isFriend = r => r.kind === "friend";
+const checkRec = () => isSaved(S.check) ? savedInfo(S.check) : null;
+const checkName = () => { const r = checkRec(); return r ? (isFriend(r) ? `${r.driver}'s lap` : r.kind === "best" ? "Personal best" : "Saved lap") : `Lap ${S.check}`; };
+const checkTime = () => { const r = checkRec(); return r ? r.lap_time : (lapInfo(S.check) || {}).time; };
+const isRival = r => !!r.rival;        // a lap by another driver, recorded live from an online session
 const savedName = r => (r.kind === "best" ? "personal best" : isFriend(r) ? `lap by ${r.driver}` : "saved lap");
-const savedTitle = r => isFriend(r) ? `Friend · ${esc(r.driver)} · ${lapT(r.lap_time)}${r.car_model ? " · " + esc(r.car_model) : ""}`
+const savedTitle = r => isRival(r) ? `Rival · ${esc(r.driver)} · ${lapT(r.lap_time)} · ${shortDate(r.date)}` : isFriend(r) ? `Friend · ${esc(r.driver)} · ${lapT(r.lap_time)}${r.car_model ? " · " + esc(r.car_model) : ""}`
   : `${r.kind === "best" ? "★ Personal best" : "Saved lap"} · ${lapT(r.lap_time)} · ${shortDate(r.date)}`;
+
+async function pollRec() {                     // is SimTracker listening to the game, and what has it kept?
+  const el = $("recStatus");
+  try {
+    const r = await api("/api/rivals");
+    const wait = r.waiting ? ` · ${r.waiting} fast lap${r.waiting === 1 ? "" : "s"} waiting for your own best lap` : "";
+    el.textContent = !r.connected ? "○ Not recording: no game session found" + wait
+      : `● Recording rival laps · ${(r.session && r.session[0]) || "session"}${r.session && r.session[1] ? " · " + r.session[1] : ""} · ${r.cars} cars · ${r.recorded} kept this run` + (r.have_best ? "" : " · no best lap of yours here yet") + wait;
+    el.style.opacity = r.connected ? "1" : ".7";
+  } catch (e) { el.textContent = ""; }
+}
+pollRec(); setInterval(pollRec, 5000);
 
 async function loadTrackMap(file) {            // the circuit's layout drawing, from the local data/track_maps folder
   try {
@@ -306,7 +324,8 @@ async function loadSession(file, keep) {
     if (!keep) S.manual = false;
     const full = comparableLaps(), ok = n => full.some(l => l.lap === n);
     const targetOk = isSaved(S.target) ? !!savedInfo(S.target) : ok(S.target);
-    if (!S.manual || !targetOk || !ok(S.check)) pickDefaults(d);
+    const checkOk = isSaved(S.check) ? !!savedInfo(S.check) : ok(S.check);
+    if (!S.manual || !targetOk || !checkOk) pickDefaults(d);
     renderLaps(); renderSaved();
     await compare();
     if (!keep || $("mapCard").hidden) loadTrackMap(file);
@@ -332,19 +351,20 @@ function renderLaps() {
       <td>${l.lap}</td><td class="num">${lapT(l.time)}${tag}</td><td class="num">${gap}</td></tr>`;
   }).join("");
   const savedRows = (list, title) => list.length ? `<tr class="sec"><td colspan="5">${title}</td></tr>` + list.map(r =>
-    `<tr class="pick saved" data-saved="${r.id}">${radio("ref", "saved:" + r.id, S.target === "saved:" + r.id)}<td class="rc"></td>
+    `<tr class="pick saved ${S.check === "saved:" + r.id ? "sel" : ""}" data-saved="${r.id}">${radio("ref", "saved:" + r.id, S.target === "saved:" + r.id)}${radio("chk", "saved:" + r.id, S.check === "saved:" + r.id)}
       <td colspan="2">${savedTitle(r)}</td><td class="num">${isFriend(r) ? "" : r.kind === "best" ? "" : ""}</td></tr>`).join("") : "";
-  html += savedRows(S.saved.filter(r => !isFriend(r)), "Saved laps (any day)") + savedRows(S.saved.filter(isFriend), "Friends' laps");
+  html += savedRows(S.saved.filter(r => !isFriend(r)), "Saved laps (any day)") + (S.saved.some(isRival) ? savedRows(S.saved.filter(r => isRival(r)), "Faster laps by other drivers (braking and throttle are estimated, steering is not known)")
+    : `<tr class="sec"><td colspan="5">Faster laps by other drivers</td></tr><tr class="saved"><td colspan="5" style="white-space:normal;font-size:12px;opacity:.75;padding:6px 8px">None recorded for this track and class yet. Keep SimTracker open while you drive an online session: the 5 fastest laps by other drivers that beat your best are kept here. (On a track where you have no best lap yet, fast laps wait until your own lap is saved.)</td></tr>`) + savedRows(S.saved.filter(r => isFriend(r) && !isRival(r)), "Friends' laps");
   $("laps").querySelector("tbody").innerHTML = html;
   const body = $("laps").querySelector("tbody");
   body.querySelectorAll("input.r-ref").forEach(r => r.onchange = () => { S.target = r.value.startsWith("saved:") ? r.value : +r.value; S.manual = true; renderLaps(); compare(); });
-  body.querySelectorAll("input.r-chk").forEach(r => r.onchange = () => { S.check = +r.value; S.manual = true; renderLaps(); compare(); });
+  body.querySelectorAll("input.r-chk").forEach(r => r.onchange = () => { S.check = r.value.startsWith("saved:") ? r.value : +r.value; S.manual = true; renderLaps(); compare(); });
   body.querySelectorAll("tr.pick[data-lap]").forEach(tr => tr.onclick = e => {      // clicking the row itself picks the lap to check
     if (e.target.tagName === "INPUT") return;
     S.check = +tr.dataset.lap; S.manual = true; renderLaps(); compare(); });
-  body.querySelectorAll("tr.saved").forEach(tr => tr.onclick = e => {                // ... or, for a saved lap, the reference
+  body.querySelectorAll("tr.saved").forEach(tr => tr.onclick = e => {                // ... and so does a saved lap
     if (e.target.tagName === "INPUT") return;
-    S.target = "saved:" + tr.dataset.saved; S.manual = true; renderLaps(); compare(); });
+    S.check = "saved:" + tr.dataset.saved; S.manual = true; renderLaps(); compare(); });      // (the other lap is picked with its radio button)
 
   const c = lapInfo(S.check);
   $("saveBtn").disabled = !(c && c.complete);
@@ -355,7 +375,7 @@ function renderLaps() {
 
 function renderSaved() {
   $("savedList").innerHTML = S.saved.length ? S.saved.map(r => `
-    <div class="saved-item"><div>${savedTitle(r)}<div class="meta">${isFriend(r) ? "from a friend" : (r.kind === "best" ? "updates automatically" : "saved by you") + " · lap " + r.lap}${!isFriend(r) && r.car_model ? " · " + esc(r.car_model) : ""}</div></div>
+    <div class="saved-item"><div>${savedTitle(r)}<div class="meta">${isRival(r) ? "recorded from an online session · braking estimated" : isFriend(r) ? "from a friend" : (r.kind === "best" ? "updates automatically" : "saved by you") + " · lap " + r.lap}${!isFriend(r) && r.car_model ? " · " + esc(r.car_model) : ""}</div></div>
       <span>${isFriend(r) ? "" : `<button class="linkbtn" data-exp="${r.id}">Export</button> `}${r.kind === "best" ? "" : `<button class="linkbtn" data-del="${r.id}">Delete</button>`}</span></div>`).join("")
     : '<p class="small">Nothing saved yet for this track and car. Your personal best appears here after your first clean lap.</p>';
   document.querySelectorAll("#savedList [data-exp]").forEach(b => b.onclick = () => exportLap({ saved: b.dataset.exp }));
@@ -420,7 +440,7 @@ async function saveLap() {
 
 function showMsg(t) {
   $("msg").textContent = t; $("msg").style.display = t ? "block" : "none";
-  if (t) { Plotly.purge("chart"); $("summary").innerHTML = ""; $("chips").innerHTML = ""; $("caption").textContent = "";
+  if (t) { Plotly.purge("chart"); $("summary").innerHTML = ""; $("chips").innerHTML = ""; $("sectors").innerHTML = ""; $("caption").textContent = "";
            $("turnTable").querySelector("tbody").innerHTML = ""; }
 }
 
@@ -428,11 +448,12 @@ async function compare() {
   if (S.target == null || S.check == null) return showMsg("You need at least one full lap to start. Drive a lap and it will show up here.");
   showMsg("");
   let d;
-  try { d = await api(`/api/compare?file=${encodeURIComponent(S.file)}&ref=${encodeURIComponent(S.target)}&other=${S.check}`); }
+  try { d = await api(`/api/compare?file=${encodeURIComponent(S.file)}&ref=${encodeURIComponent(S.target)}&other=${encodeURIComponent(S.check)}`); }
   catch (e) { return showMsg("Could not compare these laps: " + e.message); }
   S.single = d.single; S.corners = d.corners; S.last = d;
   if ($("tv").open) TV.render(false);
   renderSummary(d);
+  renderSectors(d);
   renderTurnTable(d);
   draw(d);
 }
@@ -448,7 +469,7 @@ function targetLabel(single) {             // short name for the chart legend
 }
 
 function renderSummary(d) {
-  const C = lapInfo(S.check);
+  const Ctime = checkTime();
   if (d.single) {
     $("summary").innerHTML = `<p><b>Lap ${S.target}</b> · ${lapT(lapInfo(S.target).time)}</p>`;
     $("chips").innerHTML = `<span class="lead">${cleanLaps().length < 2 && !S.saved.length ? "This is your only clean lap so far. Drive another one to compare." : "You're looking at one lap. Click a different lap on the left, or pick something else to compare against."}</span>`;
@@ -456,8 +477,8 @@ function renderSummary(d) {
   }
   const g = d.final_delta, slower = g > 0;
   $("summary").innerHTML = Math.abs(g) < 0.0005
-    ? `<p>Lap ${S.check} (${lapT(C.time)}) is <b>exactly the same time</b> as ${targetText()}.</p>`
-    : `<p>Lap ${S.check} (${lapT(C.time)}) is <b class="${slower ? "pos" : "neg"}">${Math.abs(g).toFixed(3)} s ${slower ? "slower" : "faster"}</b> than ${targetText()}.</p>`;
+    ? `<p>${checkName()} (${lapT(Ctime)}) is <b>exactly the same time</b> as ${targetText()}.</p>`
+    : `<p>${checkName()} (${lapT(Ctime)}) is <b class="${slower ? "pos" : "neg"}">${Math.abs(g).toFixed(3)} s ${slower ? "slower" : "faster"}</b> than ${targetText()}.</p>`;
   const turns = d.corners.filter(c => c.number != null);
   const lose = turns.filter(c => c.time_change_s >= 0.03).sort((a, b) => b.time_change_s - a.time_change_s).slice(0, 3);
   const gain = turns.filter(c => c.time_change_s <= -0.03).sort((a, b) => a.time_change_s - b.time_change_s).slice(0, 3);
@@ -465,6 +486,14 @@ function renderSummary(d) {
   $("chips").innerHTML = (lose.length ? `<span class="lead">Lost time in:</span>${lose.map(c => chip(c, "lose")).join("")}` : "") +
                          (gain.length ? `<span class="lead" style="margin-left:8px">Gained time in:</span>${gain.map(c => chip(c, "gain")).join("")}` : "") +
                          (!lose.length && !gain.length ? `<span class="lead">No single turn stands out. These two laps are very similar.</span>` : "");
+}
+
+function renderSectors(d) {
+  const el = $("sectors");
+  if (d.single || !d.sectors) { el.innerHTML = ""; return; }
+  const cell = "padding:3px 10px;text-align:right";
+  el.innerHTML = `<table style="border-collapse:collapse;font-size:13px;margin:8px 0"><thead><tr style="opacity:.7"><th style="padding:3px 10px;text-align:left">Sector</th><th style="${cell}">Target</th><th style="${cell}">Checking</th><th style="${cell}">Gap</th></tr></thead><tbody>` +
+    d.sectors.map(x => `<tr><td style="padding:3px 10px">${x.n}</td><td style="${cell}">${x.ref.toFixed(3)}</td><td style="${cell}">${x.other.toFixed(3)}</td><td style="${cell}" class="${x.diff > 0.0005 ? "pos" : x.diff < -0.0005 ? "neg" : ""}">${x.diff > 0 ? "+" : ""}${x.diff.toFixed(3)}</td></tr>`).join("") + "</tbody></table>";
 }
 
 function turnName(r) {
@@ -521,7 +550,7 @@ function draw(d) {
     } else {
       const shape = p.gear ? "hv" : "linear";           // gears change in steps
       if (d.ref[p.k]) traces.push({ x: d.dist, y: d.ref[p.k], name: targetLabel(single), line: { color: "#4da3ff", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
-      if (!single && d.other[p.k]) traces.push({ x: d.dist, y: d.other[p.k], name: `Lap ${S.check} (checking)`, line: { color: "#ff6b6b", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
+      if (!single && d.other[p.k]) traces.push({ x: d.dist, y: d.other[p.k], name: `${checkName()} (checking)`, line: { color: "#ff6b6b", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
     }
   });
   layout.annotations = d.corners.filter(c => c.apex_m != null).map(c => ({
@@ -610,7 +639,7 @@ const TV = {
     h += `<circle class="mark" id="tvMRef" r="5" fill="#4da3ff" visibility="hidden"/><circle class="mark" id="tvMChk" r="5" fill="#ff6b6b" visibility="hidden"/><text id="tvGap" class="gaplab" x="0" y="0" font-size="13" visibility="hidden"></text>`;
     svg.innerHTML = `<g id="tvG">${h}</g>`;
     // legend
-    const nameRef = d.single ? targetLabel(true) : targetLabel(false).replace(" (target)", ""), nameChk = `Lap ${S.check}`;
+    const nameRef = d.single ? targetLabel(true) : targetLabel(false).replace(" (target)", ""), nameChk = checkName();
     const sw = (c, w, dash) => `<span class="sw" style="border-top-width:${w}px;border-color:${c};${dash ? "border-top-style:dashed" : ""}"></span>`;
     let lg = "";
     if (mode === "lap") lg += `<div class="lg">${sw("#4da3ff", 3)} ${esc(nameRef)} <span class="small" style="margin:0">(reference)</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff6b6b", 3)} ${esc(nameChk)} <span class="small" style="margin:0">(checking)</span></div>`);
@@ -765,7 +794,7 @@ const TV = {
     const side = l => l && l.lateral && l.lateral[i] != null ? (Math.abs(l.lateral[i]) < 0.05 ? "on the centre" : Math.abs(l.lateral[i]).toFixed(1) + " m " + (l.lateral[i] > 0 ? "right" : "left") + " of centre") : "–";
     const room = l => l && l.lateral && l.edge && l.edge[i] != null && l.lateral[i] != null ? Math.abs(l.edge[i] - l.lateral[i]).toFixed(1) + " m to the edge" : "";
     const row = (c, name, l) => `<tr><td style="color:${c}">●</td><td>${esc(name)}</td></tr><tr><td></td><td>${l.speed ? l.speed[i].toFixed(0) + " km/h" : ""} · brake ${(l.brake[i] * 100).toFixed(0)}% · throttle ${(l.throttle[i] * 100).toFixed(0)}%<br>${side(l)}${room(l) ? " · " + room(l) : ""}</td></tr>`;
-    rd.innerHTML = `<b>${Math.round(d.dist[i])} m</b> into the lap<table>${row("#4da3ff", d.single ? "Lap " + S.target : "Reference", d.ref)}${d.single ? "" : row("#ff6b6b", "Lap " + S.check, d.other)}</table>`;
+    rd.innerHTML = `<b>${Math.round(d.dist[i])} m</b> into the lap<table>${row("#4da3ff", d.single ? "Lap " + S.target : "Reference", d.ref)}${d.single ? "" : row("#ff6b6b", checkName(), d.other)}</table>`;
   },
 
 
@@ -810,9 +839,9 @@ const TV = {
           <div class="bar thr"><i id="${id}Thr"></i><span>THROTTLE</span><em id="${id}ThrN">0%</em></div></div></div>`;
     const nameRef = d.single ? "Lap " + S.target : targetLabel(false).replace(" (target)", "");
     const refFinal = isSaved(S.target) ? (savedInfo(S.target) || {}).lap_time : (lapInfo(S.target) || {}).time;
-    const chkFinal = (lapInfo(S.check) || {}).time;
+    const chkFinal = checkTime();
     TV.final = { ref: refFinal, chk: chkFinal };
-    box.innerHTML = card("hudRef", "#4da3ff", "Reference", nameRef, refFinal) + (d.single ? "" : card("hudChk", "#ff6b6b", "Checking", "Lap " + S.check, chkFinal));
+    box.innerHTML = card("hudRef", "#4da3ff", "Reference", nameRef, refFinal) + (d.single ? "" : card("hudChk", "#ff6b6b", "Checking", checkName(), chkFinal));
     $("hudRef").onclick = () => TV.setFollow(TV.follow === "ref" ? null : "ref");
     if ($("hudChk")) $("hudChk").onclick = () => TV.setFollow(TV.follow === "chk" ? null : "chk");
     TV.markFollow();
