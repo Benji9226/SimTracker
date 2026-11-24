@@ -15,8 +15,8 @@
   .scroll.turns { max-height:360px; }
   .scroll thead th { position:sticky; top:0; background:var(--panel); z-index:1; box-shadow:0 1px 0 var(--line); }
   tr.pick { cursor:pointer; }
-  tr.pick:hover td { background:rgba(128,128,128,.12); }
-  tr.sel td { background:rgba(77,163,255,.18); font-weight:600; }
+  tr.pick:hover td { background:rgba(0,229,255,.07); }
+  tr.sel td { background:rgba(0,229,255,.18); font-weight:600; }
   tr.dim td { color:var(--dim); }
   .best-tag { font-size:11px; color:var(--good); margin-left:6px; }
   td.num, th.num { text-align:right; }
@@ -24,7 +24,7 @@
   .row select { max-width:100%; }
   .rc { width:1%; text-align:center !important; white-space:nowrap; font-size:11px; }
   td.rc input { margin:0; cursor:pointer; vertical-align:middle; }
-  input.r-ref { accent-color:#4da3ff; } input.r-chk { accent-color:#ff6b6b; }
+  input.r-ref { accent-color:#00e5ff; } input.r-chk { accent-color:#ff5a36; }
   tr.sec td { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding-top:10px; border-bottom:0; cursor:default; }
   tr.sec:hover td { background:none; }
   .actions { display:flex; gap:6px; align-items:center; margin-top:10px; }
@@ -34,10 +34,10 @@
   .small { font-size:12px; color:var(--dim); display:block; margin-top:8px; }
   .pos { color:var(--b); } .neg { color:var(--good); }
   #summary p { margin:0; font-size:16px; line-height:1.4; }
-  #pbnote { display:none; font-size:13px; color:var(--good); border:1px solid var(--good); border-radius:8px; padding:6px 10px; margin-bottom:10px; }
+  #pbnote { display:none; font-size:13px; color:var(--good); border:1px solid var(--good); border-radius:2px; padding:6px 10px; margin-bottom:10px; }
   #chips { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 4px; align-items:center; }
   #chips .lead { color:var(--dim); font-size:12px; margin-right:4px; }
-  .chip { font-size:12px; padding:3px 9px; border-radius:99px; border:1px solid var(--line); }
+  .chip { font-size:12px; padding:3px 9px; border-radius:2px; border:1px solid var(--line); }
   .chip.lose { border-color:var(--b); color:var(--b); }
   .chip.gain { border-color:var(--good); color:var(--good); }
   .help { margin-top:14px; color:var(--dim); font-size:13px; line-height:1.55; }
@@ -64,14 +64,14 @@
   #tv .hud .hspeed b { font-size:26px; line-height:1; display:block; }
   #tv .hud .hspeed small { color:var(--dim); font-size:11px; }
   #tv .hud .bars { flex:1; min-width:110px; display:grid; gap:6px; }
-  #tv .hud .bar { position:relative; height:16px; border-radius:4px; background:rgba(128,128,128,.22); overflow:hidden; }
+  #tv .hud .bar { position:relative; height:16px; border-radius:4px; background:rgba(0,229,255,.09); overflow:hidden; }
   #tv .hud .bar i { position:absolute; left:0; top:0; bottom:0; width:0; }
   #tv .hud .bar.brk i { background:#ff5a52; } #tv .hud .bar.thr i { background:#3fcf8e; }
   #tv .hud .bar span { position:absolute; left:6px; top:0; font-size:11px; line-height:16px; font-weight:600; color:var(--text); mix-blend-mode:normal; }
   #tv .hud .bar em { position:absolute; right:6px; top:0; font-size:11px; line-height:16px; font-style:normal; font-variant-numeric:tabular-nums; }
   #tv .hud .steerval { font-size:11px; color:var(--dim); text-align:center; font-variant-numeric:tabular-nums; }
   #tv .hud { cursor:pointer; transition:box-shadow .15s, background .15s; position:relative; }
-  #tv .hud:hover { background:rgba(128,128,128,.10); }
+  #tv .hud:hover { background:rgba(0,229,255,.06); }
   #tv .hud.following { box-shadow:0 0 0 2px var(--a) inset; }
   #tv .hud .follow { display:none; position:absolute; top:3px; right:8px; font-size:10px; color:var(--a); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
   #tv .hud.following .follow { display:block; }
@@ -80,7 +80,7 @@
   #tv .hud .hname { width:104px; }
   #tvSvg .gaplab { font-weight:700; paint-order:stroke; stroke:var(--bg); stroke-linejoin:round; pointer-events:none; font-variant-numeric:tabular-nums; }
   #tv .deltabox { flex-basis:100%; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--dim); }
-  #tv .deltabar { position:relative; flex:1; height:14px; border-radius:7px; background:rgba(128,128,128,.22); overflow:hidden; }
+  #tv .deltabar { position:relative; flex:1; height:14px; border-radius:7px; background:rgba(0,229,255,.09); overflow:hidden; }
   #tv .deltabar::after { content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; background:var(--dim); opacity:.6; }
   #tv .deltabar i { position:absolute; top:0; bottom:0; width:0; }
   #tv .deltaval { min-width:210px; text-align:center; font-size:13px; color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
@@ -100,7 +100,7 @@
   #tv .scalelab { display:flex; justify-content:space-between; color:var(--dim); font-size:11px; }
   #tv table { font-size:12px; margin-top:4px; } #tv td, #tv th { padding:2px 4px; border:0; }
   #tv .hint { color:var(--dim); font-size:12px; margin-top:12px; }
-  #tvSvg .surface { fill:var(--panel); stroke:#7a8094; stroke-width:1.2px; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
+  #tvSvg .surface { fill:var(--panel); stroke:#2b8db0; stroke-width:1.2px; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
   #tvSvg .sf { stroke:var(--good); stroke-width:4px; vector-effect:non-scaling-stroke; stroke-linecap:butt; }
   #tvSvg .sflab { fill:var(--good); font-weight:600; }
   .sftick { stroke:var(--good); stroke-width:4px; vector-effect:non-scaling-stroke; stroke-linecap:butt; pointer-events:none; }
@@ -132,7 +132,7 @@
     <div class="card">
       <h2>1 · Pick the laps to compare</h2>
       <div class="small" id="recStatus" role="status" style="margin:-2px 0 6px"></div>
-      <div class="scroll laps"><table id="laps"><thead><tr><th class="rc" title="Reference: the lap you compare against (blue line)" style="color:#4da3ff">Ref</th><th class="rc" title="The lap you are checking (red line)" style="color:#ff6b6b">Check</th><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
+      <div class="scroll laps"><table id="laps"><thead><tr><th class="rc" title="Reference: the lap you compare against (blue line)" style="color:#00e5ff">Ref</th><th class="rc" title="The lap you are checking (red line)" style="color:#ff5a36">Check</th><th>Lap</th><th class="num">Time</th><th class="num">vs best</th></tr></thead><tbody></tbody></table></div>
       <label class="small" title="Out laps, pit laps and laps with track limits. They can be compared, but never count as a best lap or in 'What to practise'."><input type="checkbox" id="hideBad"> Hide laps that don't count</label>
       <div class="actions">
         <button class="btn small-btn primary" id="saveBtn">Save lap</button>
@@ -515,9 +515,14 @@ function renderTurnTable(d) {
     const res = a < 0.005 ? "same" : `<span class="${v > 0 ? "pos" : "neg"}">${a.toFixed(3)} s ${v > 0 ? "slower" : "faster"}</span>`;
     const br = r.brake_diff_m == null || Math.abs(r.brake_diff_m) < 3 ? "" :
       `<div class="pill">braked ${Math.abs(r.brake_diff_m).toFixed(0)} m ${r.brake_diff_m < 0 ? "earlier" : "later"}</div>`;
-    return `<tr><td>${turnName(r)}</td><td class="num">${res}${br}</td></tr>`;
+    const pw = r.power_diff_m == null || Math.abs(r.power_diff_m) < 3 ? "" :
+      `<div class="pill">on the power ${Math.abs(r.power_diff_m).toFixed(0)} m ${r.power_diff_m < 0 ? "earlier" : "later"}</div>`;
+    return `<tr><td>${turnName(r)}</td><td class="num">${res}${br}${pw}</td></tr>`;
   }).join("");
 }
+
+// a wide, faint copy of a line drawn underneath it: the glow of the neon look (not shown in the legend or when hovering)
+const glow = (x, y, color, width, xaxis, yaxis, shape = "linear") => ({ x, y, line: { color, width: width * 4.5, shape }, opacity: 0.12, xaxis, yaxis, hoverinfo: "skip", showlegend: false });
 
 function draw(d) {
   const single = d.single;
@@ -532,29 +537,34 @@ function draw(d) {
   const total = panels.reduce((s, p) => s + p.w, 0);
   const gap = 0.02, traces = [], layout = {
     height: 120 * panels.length + 150, margin: { l: 62, r: 16, t: 40, b: 110 },
-    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { color: getComputedStyle(document.body).color },
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -70 / (120 * panels.length), yanchor: "top" }, hovermode: "x unified", hoverlabel: hoverStyle(),
+    ...chartBase(),
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -70 / (120 * panels.length), yanchor: "top", font: { family: CHART_FONT, size: 12, color: cssVar("--text") }, bgcolor: "rgba(0,0,0,0)", itemsizing: "constant" },
+    hovermode: "x unified", shapes: [],
   };
   let top = 1;
   panels.forEach((p, i) => {
     const h = p.w / total, ax = i === 0 ? "" : i + 1;
-    layout["xaxis" + ax] = { domain: [0, 1], anchor: "y" + ax, matches: "x", hoverformat: ".0f", showticklabels: i === panels.length - 1,
-      gridcolor: "rgba(128,128,128,.2)", title: i === panels.length - 1 ? "Distance around the lap (m)" : undefined };
-    layout["yaxis" + ax] = { domain: [top - h + gap, top], anchor: "x" + ax, gridcolor: "rgba(128,128,128,.2)", title: p.title,
+    layout["xaxis" + ax] = chartAxis({ domain: [0, 1], anchor: "y" + ax, matches: "x", hoverformat: ".0f", showticklabels: i === panels.length - 1,
+      showspikes: true, spikemode: "across", spikesnap: "cursor", spikecolor: "rgba(0,229,255,.55)", spikethickness: 1, spikedash: "dot",
+      title: i === panels.length - 1 ? "Distance around the lap (m)" : undefined });
+    layout["yaxis" + ax] = chartAxis({ domain: [top - h + gap, top], anchor: "x" + ax, title: p.title, automargin: false,
       zeroline: p.k === "gap", ...(p.pct ? { tickformat: ".0%", range: [0, 1.05] } : {}),
-      ...(p.gear ? { dtick: 1, range: [Math.max(0, Math.min(...gears)) - 0.5, Math.max(...gears) + 0.5] } : {}) };
+      ...(p.gear ? { dtick: 1, range: [Math.max(0, Math.min(...gears)) - 0.5, Math.max(...gears) + 0.5] } : {}) });
     top -= h;
     const xa = "x" + ax, ya = "y" + ax;
     if (p.k === "gap") {
-      traces.push({ x: d.dist, y: d.delta, name: "Time gap", line: { color: "#ffb84d", width: 2 }, fill: "tozeroy", fillcolor: "rgba(255,184,77,.15)", xaxis: xa, yaxis: ya, showlegend: false, hovertemplate: p.hv });
+      traces.push(glow(d.dist, d.delta, "#ffb020", 2, xa, ya));
+      traces.push({ x: d.dist, y: d.delta, name: "Time gap", line: { color: "#ffb020", width: 1.8 }, fill: "tozeroy", fillcolor: "rgba(255,176,32,.12)", xaxis: xa, yaxis: ya, showlegend: false, hovertemplate: p.hv });
     } else {
       const shape = p.gear ? "hv" : "linear";           // gears change in steps
-      if (d.ref[p.k]) traces.push({ x: d.dist, y: d.ref[p.k], name: targetLabel(single), line: { color: "#4da3ff", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
-      if (!single && d.other[p.k]) traces.push({ x: d.dist, y: d.other[p.k], name: `${checkName()} (checking)`, line: { color: "#ff6b6b", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv });
+      if (d.ref[p.k]) { traces.push(glow(d.dist, d.ref[p.k], "#00e5ff", 1.6, xa, ya, shape)); traces.push({ x: d.dist, y: d.ref[p.k], name: targetLabel(single), line: { color: "#00e5ff", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv }); }
+      if (!single && d.other[p.k]) { traces.push(glow(d.dist, d.other[p.k], "#ff5a36", 1.6, xa, ya, shape)); traces.push({ x: d.dist, y: d.other[p.k], name: `${checkName()} (checking)`, line: { color: "#ff5a36", width: 1.6, shape }, xaxis: xa, yaxis: ya, showlegend: p.k === "speed", hovertemplate: p.hv }); }
     }
   });
   layout.annotations = d.corners.filter(c => c.apex_m != null).map(c => ({
-    x: c.apex_m, y: 1, xref: "x", yref: "paper", text: "T" + c.number, showarrow: false, yanchor: "bottom", yshift: 4, font: { size: 10, color: "#8a90a2" } }));
+    x: c.apex_m, y: 1, xref: "x", yref: "paper", text: "T" + c.number, showarrow: false, yanchor: "bottom", yshift: 4, font: { family: CHART_FONT, size: 10, color: "#37c8e0" } }));
+  layout.shapes = d.corners.filter(c => c.apex_m != null).map(c => ({            // a faint dotted line down every panel at each turn
+    type: "line", xref: "x", yref: "paper", x0: c.apex_m, x1: c.apex_m, y0: 0, y1: 1, layer: "below", line: { color: "rgba(0,229,255,.13)", width: 1, dash: "dot" } }));
   $("chart").style.height = layout.height + "px";
   $("caption").textContent = single ? "" : "Top chart: when the line goes up, the lap you're checking is falling behind. T1, T2 ... mark the turns.";
   S.chartLen = d.dist[d.dist.length - 1];
@@ -636,22 +646,22 @@ const TV = {
     }
     h += `<line class="sf" x1="${a0[0]}" y1="${a0[1]}" x2="${a1[0]}" y2="${a1[1]}"><title>Start / finish line</title></line>`;
     h += `<text class="sflab" id="tvSF" x="${a1[0]}" y="${a1[1]}" dx="6" dy="-6" font-size="12">Start / finish</text>`;
-    h += `<circle class="mark" id="tvMRef" r="5" fill="#4da3ff" visibility="hidden"/><circle class="mark" id="tvMChk" r="5" fill="#ff6b6b" visibility="hidden"/><text id="tvGap" class="gaplab" x="0" y="0" font-size="13" visibility="hidden"></text>`;
+    h += `<circle class="mark" id="tvMRef" r="5" fill="#00e5ff" visibility="hidden"/><circle class="mark" id="tvMChk" r="5" fill="#ff5a36" visibility="hidden"/><text id="tvGap" class="gaplab" x="0" y="0" font-size="13" visibility="hidden"></text>`;
     svg.innerHTML = `<g id="tvG">${h}</g>`;
     // legend
     const nameRef = d.single ? targetLabel(true) : targetLabel(false).replace(" (target)", ""), nameChk = checkName();
     const sw = (c, w, dash) => `<span class="sw" style="border-top-width:${w}px;border-color:${c};${dash ? "border-top-style:dashed" : ""}"></span>`;
     let lg = "";
-    if (mode === "lap") lg += `<div class="lg">${sw("#4da3ff", 3)} ${esc(nameRef)} <span class="small" style="margin:0">(reference)</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff6b6b", 3)} ${esc(nameChk)} <span class="small" style="margin:0">(checking)</span></div>`);
+    if (mode === "lap") lg += `<div class="lg">${sw("#00e5ff", 3)} ${esc(nameRef)} <span class="small" style="margin:0">(reference)</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff5a36", 3)} ${esc(nameChk)} <span class="small" style="margin:0">(checking)</span></div>`);
     else {
       const [lo, hi] = mode === "speed" ? [s0, s1] : [0, 1];
       const grad = [0, .25, .5, .75, 1].map(v => TV.colour[mode](v)).join(",");
-      lg += `<div class="lg">${sw("#4da3ff", 4)} ${esc(nameRef)} <span class="small" style="margin:0">reference</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff6b6b", 4)} ${esc(nameChk)} <span class="small" style="margin:0">checking</span></div>`) +
+      lg += `<div class="lg">${sw("#00e5ff", 4)} ${esc(nameRef)} <span class="small" style="margin:0">reference</span></div>` + (d.single ? "" : `<div class="lg">${sw("#ff5a36", 4)} ${esc(nameChk)} <span class="small" style="margin:0">checking</span></div>`) +
         (d.single ? "" : `<p class="small" style="margin:2px 0 6px">The two laps run side by side (the reference on the left, in the direction of travel) so you can compare their colours. Zoom in and they move to where they really were.</p>`) +
         `<div class="scale" style="background:linear-gradient(90deg,${grad})"></div><div class="scalelab"><span>${mode === "speed" ? lo.toFixed(0) + " km/h" : mode === "room" ? "at the edge" : "none"}</span><span>${mode === "speed" ? hi.toFixed(0) + " km/h" : mode === "room" ? "6 m+ to spare" : "full " + mode}</span></div>`;
     }
     lg += `<div class="lg">${sw("var(--good)", 4)} start / finish line</div>`;
-    if (E && $("tvEdges").checked) lg += `<div class="lg"><span class="sw" style="border-top:8px solid var(--panel);outline:1px solid #7a8094"></span> track surface · from ${E.laps_used} lap${E.laps_used === 1 ? "" : "s"}</div>`;
+    if (E && $("tvEdges").checked) lg += `<div class="lg"><span class="sw" style="border-top:8px solid var(--panel);outline:1px solid #2b8db0"></span> track surface · from ${E.laps_used} lap${E.laps_used === 1 ? "" : "s"}</div>`;
     if (!hasRef && !d.single) lg += `<p class="small">The reference lap has no racing line (a saved lap from an older version).</p>`;
     if (!hasChk && !d.single) lg += `<p class="small">The checked lap has no racing line.</p>`;
     $("tvLegend").innerHTML = lg;
@@ -714,7 +724,7 @@ const TV = {
       }
       return out;
     };
-    g.innerHTML = draw(c.ref, pr, c.showRef, "#4da3ff") + draw(c.chk, pc, c.showChk, "#ff6b6b");
+    g.innerHTML = draw(c.ref, pr, c.showRef, "#00e5ff") + draw(c.chk, pc, c.showChk, "#ff5a36");
   },
 
   apply() {
@@ -794,7 +804,7 @@ const TV = {
     const side = l => l && l.lateral && l.lateral[i] != null ? (Math.abs(l.lateral[i]) < 0.05 ? "on the centre" : Math.abs(l.lateral[i]).toFixed(1) + " m " + (l.lateral[i] > 0 ? "right" : "left") + " of centre") : "–";
     const room = l => l && l.lateral && l.edge && l.edge[i] != null && l.lateral[i] != null ? Math.abs(l.edge[i] - l.lateral[i]).toFixed(1) + " m to the edge" : "";
     const row = (c, name, l) => `<tr><td style="color:${c}">●</td><td>${esc(name)}</td></tr><tr><td></td><td>${l.speed ? l.speed[i].toFixed(0) + " km/h" : ""} · brake ${(l.brake[i] * 100).toFixed(0)}% · throttle ${(l.throttle[i] * 100).toFixed(0)}%<br>${side(l)}${room(l) ? " · " + room(l) : ""}</td></tr>`;
-    rd.innerHTML = `<b>${Math.round(d.dist[i])} m</b> into the lap<table>${row("#4da3ff", d.single ? "Lap " + S.target : "Reference", d.ref)}${d.single ? "" : row("#ff6b6b", checkName(), d.other)}</table>`;
+    rd.innerHTML = `<b>${Math.round(d.dist[i])} m</b> into the lap<table>${row("#00e5ff", d.single ? "Lap " + S.target : "Reference", d.ref)}${d.single ? "" : row("#ff5a36", checkName(), d.other)}</table>`;
   },
 
 
@@ -841,7 +851,7 @@ const TV = {
     const refFinal = isSaved(S.target) ? (savedInfo(S.target) || {}).lap_time : (lapInfo(S.target) || {}).time;
     const chkFinal = checkTime();
     TV.final = { ref: refFinal, chk: chkFinal };
-    box.innerHTML = card("hudRef", "#4da3ff", "Reference", nameRef, refFinal) + (d.single ? "" : card("hudChk", "#ff6b6b", "Checking", checkName(), chkFinal));
+    box.innerHTML = card("hudRef", "#00e5ff", "Reference", nameRef, refFinal) + (d.single ? "" : card("hudChk", "#ff5a36", "Checking", checkName(), chkFinal));
     $("hudRef").onclick = () => TV.setFollow(TV.follow === "ref" ? null : "ref");
     if ($("hudChk")) $("hudChk").onclick = () => TV.setFollow(TV.follow === "chk" ? null : "chk");
     TV.markFollow();

@@ -7,10 +7,13 @@ pick a reference lap and a comparison lap to plot speed/throttle/brake/steering/
 """
 from __future__ import annotations
 
+import atexit
 import json
+import os
 import re
 import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -25,6 +28,7 @@ import pandas as pd
 
 from simtracker.analysis.consistency import turn_stats
 from simtracker.analysis.corners import corner_report
+from simtracker.analysis import setup_report
 from simtracker.analysis.edges import track_edges
 from simtracker.analysis.layout import MAX_RMS, lap_xy, match_to_map, outline_from_lap
 from simtracker.analysis.laps import compare_laps, compare_to_grid, fmt_time, grid_points, lap_on_grid, lap_summary
@@ -483,6 +487,50 @@ def api_compare(name: str, ref: str, other: str) -> dict:
     }
 
 
+def api_setup(name: str, a: str | None = None, b: str | None = None) -> dict:
+    """Setup report for the car and track of session `name`: every run (telemetry file) of that car on that track, what each showed,
+    findings for the run on screen, and a comparison of two runs. Only your own laps are used (see analysis/setup_report.py)."""
+    info = _info(name)["info"]
+    last = _files(name)[-1]
+    f0 = facts(last)
+    if not f0:
+        raise ValueError("This session can't be read yet.")
+    who = f0["who"][:3]
+    mine = {fn for fn in group_for(FOLDER, name)["files"]}
+    runs, skipped = [], 0
+    for g in groups(FOLDER):
+        for fn in g["files"]:
+            path = FOLDER / fn
+            fa = facts(path)
+            if not fa or fa["who"][:3] != who:
+                continue
+            m = setup_report.run_metrics(path)
+            if m and m["n_laps"] >= setup_report.MIN_LAPS:
+                runs.append(m)
+            else:
+                skipped += 1
+    runs.sort(key=lambda r: r["recorded"])
+    if not runs:
+        raise ValueError("Need at least %d clean laps in one run of this car on this track." % setup_report.MIN_LAPS)
+    ids = {}
+    for r in runs:                                   # runs with the same setup get the same letter
+        ids.setdefault(setup_report.setup_id(r["setup"]), chr(65 + len(ids) % 26))
+    by_id = {r["id"]: r for r in runs}
+    shown = by_id.get(b) or next((r for r in reversed(runs) if r["id"] in mine), runs[-1])
+    earlier = [r for r in runs if r["recorded"] < shown["recorded"] and setup_report.setup_id(r["setup"]) != setup_report.setup_id(shown["setup"])]
+    base = by_id.get(a) or (earlier[-1] if earlier else None)
+    prof = profiles.load(info)
+    turns = (prof or {}).get("turns")
+    rows = [{"id": r["id"], "recorded": r["recorded"], "setup": ids[setup_report.setup_id(r["setup"])], "n_laps": r["n_laps"], "best": r["best"],
+             "median": r["median"], "tc_s_per_lap": r["tc_s_per_lap"], "abs_pct": r["abs_pct"], "session": r["session_type"],
+             "tc": setup_report.setting(r, "VM_TRACTIONCONTROLMAP"), "abs": setup_report.setting(r, "VM_ANTILOCKBRAKESYSTEMMAP")} for r in runs]
+    detail = {k: shown.get(k) for k in ("tyre_inner_minus_outer", "tyre_temp", "pressure", "brake_temp_mean", "brake_temp_peak")}
+    return {"car": who[2], "track": who[0], "layout": who[1], "runs": rows, "skipped": skipped, "shown": shown["id"],
+            "base": base["id"] if base else None, "findings": setup_report.findings(shown, turns), "detail": detail,
+            "tc_spots": setup_report.spots(shown["tc_bins"], shown["n_laps"], turns, shown.get("length")),
+            "compare": setup_report.compare(base, shown) if base else None}
+
+
 def api_edges(name: str) -> dict:
     """The two edges of the track in metres, from all laps of the session (see analysis/edges.py)."""
     df, s, info = _df(name), lap_summary(_df(name)), _info(name)["info"]
@@ -617,9 +665,31 @@ def _run_info(p: Path) -> dict | None:
     return out
 
 
+_overlay = {"proc": None}
+
+
+def api_overlay(action: str | None = None) -> dict:
+    """Start or stop the overlay window (a separate process, see overlay.py), or just say whether it is running."""
+    proc = _overlay["proc"]
+    running = proc is not None and proc.poll() is None
+    if action == "start" and not running:
+        cmd = [sys.executable, "--overlay"] if FROZEN else [sys.executable, str(Path(__file__).resolve().parent.parent / "dashboard.py"), "--overlay"]
+        cmd += ["--parent", str(os.getpid())]                      # the overlay closes itself when this program closes
+        _overlay["proc"] = subprocess.Popen(cmd, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        running = True
+    elif action == "stop" and running:
+        proc.terminate()
+        running = False
+    return {"running": running}
+
+
+atexit.register(lambda: api_overlay("stop"))
+
+
 STATIC = {   # URL -> (file in web/, content type)
     "/": ("laps.html", "text/html; charset=utf-8"),
     "/turns": ("turns.html", "text/html; charset=utf-8"),
+    "/setup": ("setup.html", "text/html; charset=utf-8"),
     "/common.js": ("common.js", "application/javascript"),
     "/common.css": ("common.css", "text/css"),
     "/plotly.min.js": ("plotly.min.js", "application/javascript"),
@@ -669,6 +739,10 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_saved(q["file"])
             elif u.path == "/api/rivals":
                 data = rivals.status()
+            elif u.path == "/api/overlay":
+                data = api_overlay()
+            elif u.path == "/api/setup":
+                data = api_setup(q["file"], q.get("a"), q.get("b"))
             else:
                 return self._send(b"not found", "text/plain", 404)
             self._send(json.dumps(data).encode(), "application/json")
@@ -699,6 +773,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_import(body["file"], body.get("lap"))
             elif path == "/api/sessions/delete":
                 data = api_delete_sessions(list(body.get("names") or []))
+            elif path == "/api/overlay":
+                data = api_overlay(str(body.get("action", "")))
             elif path == "/api/turns/rename":
                 data = api_rename_turn(body["file"], int(body["number"]), str(body.get("name", "")))
             else:

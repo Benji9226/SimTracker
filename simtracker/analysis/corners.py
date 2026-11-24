@@ -132,6 +132,19 @@ def _brake_point(lap: pd.DataFrame, a: int, b: int, thresh: float = 0.2):
     return float(lap["dist"].iloc[a + idx[0]]) if len(idx) else None
 
 
+def _power_point(lap: pd.DataFrame, a: int, b: int, rise: float = 2.0):
+    """Where the car starts speeding up again after the slowest point of the turn (a..b): the first place its speed is `rise` km/h above
+    that slowest point and still rising. Taken from speed alone, so it can be read the same way for your laps and for rival laps."""
+    sp = lap["speed"].to_numpy(float)[a:b + 1]
+    if len(sp) < 4:
+        return None
+    m = int(np.argmin(sp))
+    for i in range(m + 1, len(sp) - 1):
+        if sp[i] >= sp[m] + rise and sp[i + 1] >= sp[i]:
+            return float(lap["dist"].iloc[a + i])
+    return None
+
+
 def corner_report(ref: pd.DataFrame, other: pd.DataFrame, delta: pd.Series, zones: list[dict]) -> list[dict]:
     """Per-turn time change (+ = other lost time), minimum speeds and braking point.
 
@@ -141,6 +154,7 @@ def corner_report(ref: pd.DataFrame, other: pd.DataFrame, delta: pd.Series, zone
     for c in zones:
         a, e, s = c["apex"], c["end"], c["start"]
         rb, ob = _brake_point(ref, s, a), _brake_point(other, s, a)
+        rp, op = _power_point(ref, s, e), _power_point(other, s, e)
         rows.append({
             "name": c["name"],
             "number": c["number"],
@@ -152,10 +166,11 @@ def corner_report(ref: pd.DataFrame, other: pd.DataFrame, delta: pd.Series, zone
             "ref_min_speed": round(float(ref["speed"].iloc[s:e + 1].min()), 1),
             "other_min_speed": round(float(other["speed"].iloc[s:e + 1].min()), 1),
             "brake_diff_m": round(ob - rb, 1) if rb is not None and ob is not None else None,
+            "power_diff_m": round(op - rp, 1) if rp is not None and op is not None else None,
         })
     zoned = sum(r["time_change_s"] for r in rows)
     rows.append({"name": "Straights / between corners", "number": None, "apex_m": None,
                  "from_m": None, "to_m": None, "ref_time_s": None,
                  "time_change_s": round(float(delta.iloc[-1] - zoned), 3),
-                 "ref_min_speed": None, "other_min_speed": None, "brake_diff_m": None})
+                 "ref_min_speed": None, "other_min_speed": None, "brake_diff_m": None, "power_diff_m": None})
     return rows

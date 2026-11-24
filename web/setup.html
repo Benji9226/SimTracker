@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimTracker – Setup</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+  main { padding:16px; display:grid; gap:16px; max-width:1100px; margin:0 auto; }
+  .intro { color:var(--dim); line-height:1.5; margin:0; }
+  .small { font-size:12px; color:var(--dim); }
+  .banner { border:1px solid var(--warn); color:var(--warn); border-radius:2px; padding:8px 12px; font-size:13px; }
+  .finds { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; }
+  .find { border:1px solid var(--line); border-radius:2px; padding:14px; background:var(--panel); }
+  .find.try { border-color:var(--warn); }
+  .find .kind { font-size:12px; font-weight:600; color:var(--dim); }
+  .find.try .kind { color:var(--warn); }
+  .find h3 { margin:4px 0 6px; font-size:16px; }
+  .find p { margin:8px 0 0; line-height:1.45; }
+  .find ul { margin:8px 0 0; padding-left:18px; color:var(--dim); font-size:13px; line-height:1.5; }
+  td.num, th.num { text-align:right; }
+  .good { color:var(--good); } .warn { color:var(--warn); }
+  tr.pick { cursor:pointer; }
+  tr.shown td { background:rgba(0,229,255,.10); }
+  .letter { display:inline-block; min-width:20px; text-align:center; border:1px solid var(--line); border-radius:2px; padding:0 5px; font-weight:600; }
+  .cmpsel { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .help { color:var(--dim); font-size:13px; line-height:1.55; }
+  .help summary { cursor:pointer; color:var(--text); }
+  .help li { margin:4px 0; }
+</style>
+</head>
+<body>
+<header></header>
+<main>
+  <div id="msg">Loading…</div>
+  <div id="content" style="display:none; gap:16px">
+    <p class="intro" id="intro"></p>
+    <div id="banner" class="banner" style="display:none"></div>
+
+    <div>
+      <h2 style="margin:0 0 8px">What the data says about this setup</h2>
+      <div class="finds" id="finds"></div>
+      <p class="intro" style="margin-top:10px;font-size:12px">These come from your own laps only. They are rules of thumb on measurements, not proof of what the car needs. A suggestion is something to try and compare, one change at a time.</p>
+    </div>
+
+    <div class="card">
+      <h2>Your runs with this car on this track (click one to look at it)</h2>
+      <table id="runs"><thead><tr><th>Date</th><th>Setup</th><th class="num">Clean laps</th><th class="num">Best</th><th class="num">Typical</th><th class="num">TC per lap</th><th class="num">ABS braking</th><th>TC / ABS map</th></tr></thead><tbody></tbody></table>
+      <p class="small" id="runsNote" style="margin:8px 0 0"></p>
+    </div>
+
+    <div class="card">
+      <h2>Compare two runs</h2>
+      <div class="cmpsel"><label>From <select id="selA"></select></label><label>to <select id="selB"></select></label></div>
+      <div id="cmp"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tyres and brakes in the run you are looking at</h2>
+      <table id="wheels"><thead><tr><th></th><th class="num">Front left</th><th class="num">Front right</th><th class="num">Rear left</th><th class="num">Rear right</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <details class="help">
+      <summary>How these numbers are measured</summary>
+      <ul>
+        <li>Only clean laps count: full laps of a normal length and time, so out laps, pit visits and spins are left out.</li>
+        <li><b>TC per lap</b>: seconds per lap that traction control was active. <b>ABS braking</b>: the share of the time your brake pedal was pressed that ABS was active.</li>
+        <li><b>Inner minus outer edge</b>: how much hotter the inner edge of the tyre runs than the outer edge. More negative camber raises it.</li>
+        <li>"Same places" means in at least 60% of the clean laps the effect came on in the same 100 m stretch of track.</li>
+        <li>Lap times vary by about half a second from run to run for reasons that have nothing to do with the setup, so the other numbers are the better guide.</li>
+      </ul>
+    </details>
+  </div>
+</main>
+<script src="/common.js"></script>
+<script>
+const lapT = s => { if (s == null) return "–"; const m = Math.floor(s / 60); return m + ":" + (s - m * 60).toFixed(3).padStart(6, "0"); };
+const when = id => { const m = /(\d{4})-(\d\d)-(\d\d)T(\d\d)_(\d\d)_(\d\d)Z/.exec(id); if (!m) return id; const d = new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6])); return d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); };
+const stamp = r => when(r.recorded) + " · setup " + r.setup + " · " + r.n_laps + " laps";
+let hasContent = false, last = null, file = null;
+
+async function loadSession(f, keep, a, b) {
+  if (!keep && !App.pending) App.status("loading…");
+  try {
+    file = f;
+    const d = await api("/api/setup?file=" + encodeURIComponent(f) + (a ? "&a=" + encodeURIComponent(a) : "") + (b ? "&b=" + encodeURIComponent(b) : ""));
+    $("msg").style.display = "none"; $("content").style.display = "grid"; hasContent = true;
+    render(d);
+    return true;
+  } catch (e) {
+    if (e.message.startsWith("Need at least")) {
+      hasContent = false; $("content").style.display = "none"; $("msg").style.display = "block";
+      $("msg").textContent = "You need at least 3 clean laps in one run of this car on this track to see this page. Drive a few laps and it will show up here.";
+      return true;
+    }
+    if (!hasContent) { $("msg").style.display = "block"; $("msg").textContent = "Could not load session: " + e.message; }
+    return false;
+  } finally { App.status(""); }
+}
+
+const diffClass = (r) => Math.abs(r.diff) < 1e-9 ? "" : "";
+function render(d) {
+  last = d;
+  const n = d.runs.length;
+  $("intro").textContent = `This page looks at your ${n} run${n === 1 ? "" : "s"} with the ${d.car} at ${d.layout || d.track}. Each run is one time you left the garage, with the setup you drove it with.`;
+  const shownRun = d.runs.find(r => r.id === d.shown);
+  $("banner").style.display = shownRun && shownRun.n_laps < 8 ? "block" : "none";
+  $("banner").textContent = shownRun ? `The run on screen has ${shownRun.n_laps} clean laps. Treat this as a rough guide; it gets more reliable with 8 or more.` : "";
+
+  $("finds").innerHTML = d.findings.length ? d.findings.map(f => `
+    <div class="find ${f.kind}"><div class="kind">${f.kind === "try" ? "Worth trying · " : ""}${esc(f.topic)}</div><h3>${esc(f.title)}</h3>
+      <p>${esc(f.text)}</p>${f.evidence.length ? `<ul>${f.evidence.map(e => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}</div>`).join("")
+    : `<div class="find"><h3>Nothing stands out</h3><p>No recurring problem was found in this run.</p></div>`;
+
+  $("runs").querySelector("tbody").innerHTML = d.runs.slice().reverse().map(r => `
+    <tr class="pick ${r.id === d.shown ? "shown" : ""}" data-id="${esc(r.id)}"><td>${esc(when(r.recorded))} <span class="small">${esc(r.session)}</span></td><td><span class="letter">${esc(r.setup)}</span></td>
+      <td class="num">${r.n_laps}</td><td class="num">${lapT(r.best)}</td><td class="num">${lapT(r.median)}</td>
+      <td class="num">${r.tc_s_per_lap.toFixed(1)} s</td><td class="num">${r.abs_pct == null ? "–" : r.abs_pct.toFixed(0) + " %"}</td><td>${esc(r.tc || "–")} / ${esc(r.abs || "–")}</td></tr>`).join("");
+  $("runsNote").textContent = "Runs with the same letter were driven with the same setup." + (d.skipped ? ` ${d.skipped} shorter run${d.skipped === 1 ? "" : "s"} with fewer than 3 clean laps ${d.skipped === 1 ? "is" : "are"} left out.` : "");
+
+  const opts = d.runs.slice().reverse().map(r => `<option value="${esc(r.id)}">${esc(stamp(r))}</option>`).join("");
+  $("selA").innerHTML = opts; $("selB").innerHTML = opts;
+  if (d.base) $("selA").value = d.base;
+  $("selB").value = d.shown;
+  renderCmp(d.compare);
+
+  const w = d.detail, f1 = v => v == null ? "–" : v.toFixed(1), row = (label, a, unit) => `<tr><td>${label}</td>${(a || [null, null, null, null]).map(v => `<td class="num">${v == null ? "–" : v}${v == null ? "" : unit}</td>`).join("")}</tr>`;
+  $("wheels").querySelector("tbody").innerHTML =
+    row("Average tyre temperature", w.tyre_temp, " °C") + row("Inner edge hotter than outer by", w.tyre_inner_minus_outer, " °C") +
+    row("Tyre pressure", w.pressure, " kPa") + row("Brake disc temperature, average", w.brake_temp_mean, " °C") + row("Brake disc temperature, peak", w.brake_temp_peak, " °C");
+}
+
+function renderCmp(c) {
+  const el = $("cmp");
+  if (!c) { el.innerHTML = `<p class="small">There is no earlier run with a different setup to compare with yet. Change a setting, drive a few laps, and it will show up here.</p>`; return; }
+  const sgn = v => (v > 0 ? "+" : "") + v;
+  const settings = c.changes.length ? `<table><thead><tr><th>Setting you changed</th><th>Was</th><th>Now</th></tr></thead><tbody>` +
+      c.changes.map(x => `<tr><td>${esc(x.name)}${x.where ? ` <span class="small">${esc(x.where)}</span>` : ""}</td><td>${esc(x.from == null ? "–" : x.from)}</td><td>${esc(x.to == null ? "–" : x.to)}</td></tr>`).join("") + "</tbody></table>"
+    : `<p class="small">The two runs were driven with the same setup.</p>`;
+  const moved = c.rows.length ? `<table style="margin-top:12px"><thead><tr><th>What the car did</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead><tbody>` +
+      c.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${r.a}${esc(r.unit)}</td><td class="num">${r.b}${esc(r.unit)}</td><td class="num">${sgn(r.diff)}${esc(r.unit)}</td></tr>`).join("") + "</tbody></table>" : "";
+  el.innerHTML = (c.note ? `<div class="banner" style="margin-bottom:10px">${esc(c.note)}</div>` : "") + settings + moved;
+}
+
+document.addEventListener("click", e => {
+  const tr = e.target.closest("#runs tr.pick");
+  if (tr && file) loadSession(file, true, null, tr.dataset.id);
+});
+const again = () => file && loadSession(file, true, $("selA").value, $("selB").value);
+$("selA").onchange = again; $("selB").onchange = again;
+App.start("setup", (f, keep) => loadSession(f, keep));
+</script>
+</body>
+</html>

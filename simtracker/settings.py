@@ -24,3 +24,16 @@ def load() -> dict:
         except OSError:
             pass
     return {**DEFAULTS, **data}
+
+
+def save(patch: dict) -> None:
+    """Change some of your settings (the others stay as they are)."""
+    try:
+        data = json.loads(_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = dict(DEFAULTS)
+    data.update(patch)
+    try:
+        _FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        pass

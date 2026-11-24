@@ -63,20 +63,22 @@ const App = {
   pending: null,       // a session that could not be opened yet (the game still has its file locked); retried
   sessions: [], labels: {}, known: "", mtimes: {},
 
-  // page: "laps" | "turns".  onSession(file, refreshOnly) loads a session into the page. It must return false
+  // page: "laps" | "turns" | "setup".  onSession(file, refreshOnly) loads a session into the page. It must return false
   // when the session could not be opened, and in that case must leave what is on screen alone.
   start(page, onSession) {
     document.querySelector("header").innerHTML = `
       <div class="bar">
         <h1>SimTracker</h1>
         <nav><a href="/" class="${page === "laps" ? "active" : ""}">Compare laps</a>
-             <a href="/turns" class="${page === "turns" ? "active" : ""}">What to practise</a></nav>
+             <a href="/turns" class="${page === "turns" ? "active" : ""}">What to practise</a>
+             <a href="/setup" class="${page === "setup" ? "active" : ""}">Setup</a></nav>
         <select id="sessions" hidden></select>
         <div class="dd" id="sessionDd">
           <button type="button" class="dd-btn" id="ddBtn" aria-haspopup="listbox" aria-expanded="false"><span id="ddLabel">Sessions…</span><span class="caret">▾</span></button>
           <ul class="dd-list" id="ddList" role="listbox" hidden></ul>
         </div>
         <button class="btn small-btn" id="manageBtn" title="Delete old telemetry sessions to free up space">Manage sessions…</button>
+        <button class="btn small-btn" id="overlayBtn" title="A small window on top of the game that draws your throttle, brake and speed (the game must run borderless or windowed)">Show overlay</button>
         <span class="pill" id="status"></span>
         <button class="btn small-btn primary" id="updateBtn" hidden></button>
       </div>
@@ -92,6 +94,9 @@ const App = {
     $("sessions").onchange = e => App.choose(e.target.value, onSession);
     Dd.init();
     $("manageBtn").onclick = () => Manage.open(() => App.refresh());
+    const overlayShow = r => { $("overlayBtn").textContent = r.running ? "Hide overlay" : "Show overlay"; $("overlayBtn").dataset.on = r.running ? "1" : ""; };
+    api("/api/overlay").then(overlayShow).catch(() => {});
+    $("overlayBtn").onclick = () => apiPost("/api/overlay", { action: $("overlayBtn").dataset.on ? "stop" : "start" }).then(overlayShow).catch(() => {});
     Updates.start();
     const poll = async () => {
       const list = await api("/api/sessions");
@@ -201,9 +206,21 @@ async function renameTurn(number, current, after) {
 const shortDate = d => { const t = new Date(String(d).slice(0, 10)); return isNaN(t) ? "" : t.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); };
 
 // Plotly's hover box is white with grey text by default. This gives it the page's own colours (dark or light).
+const CHART_FONT = '"Bahnschrift", "Segoe UI", system-ui, sans-serif';
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function hoverStyle() {
-  const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  return { bgcolor: v("--panel"), bordercolor: v("--line"), font: { color: v("--text"), size: 13 }, namelength: -1 };   // namelength -1: never cut the lap name short
+  return { bgcolor: "#050e18", bordercolor: cssVar("--a"), font: { family: CHART_FONT, color: cssVar("--text"), size: 12 }, namelength: -1 };   // namelength -1: never cut the lap name short
+}
+
+// The look of the charts (Plotly): the same fonts and colours as the pages. chartBase() is the start of a layout, chartAxis() one axis.
+function chartBase() {
+  return { paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(2,10,18,.62)", font: { family: CHART_FONT, color: cssVar("--text"), size: 12 }, hoverlabel: hoverStyle() };
+}
+function chartAxis(o = {}) {
+  const { title, ...rest } = o;
+  return { gridcolor: "rgba(0,229,255,.075)", zerolinecolor: "rgba(0,229,255,.4)", linecolor: "#14465f", ticks: "outside", ticklen: 4, tickcolor: "#14465f",
+    tickfont: { family: CHART_FONT, size: 11, color: cssVar("--dim") }, automargin: true,
+    title: title ? { text: String(title).toUpperCase(), font: { family: CHART_FONT, size: 10, color: "#37c8e0" }, standoff: 8 } : undefined, ...rest };
 }
 
 // "Manage sessions": a window to delete old telemetry sessions (every run of each) from the game's Telemetry folder.

@@ -9,20 +9,20 @@
 <style>
   main { padding:16px; display:grid; gap:16px; max-width:1100px; margin:0 auto; }
   .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
-  .tile { border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--panel); }
+  .tile { border:1px solid var(--line); border-radius:2px; padding:12px; background:var(--panel); }
   .tile b { display:block; font-size:22px; margin:2px 0; }
   .tile span { color:var(--dim); font-size:12px; }
   .good { color:var(--good); } .warn { color:var(--warn); }
   .intro { color:var(--dim); line-height:1.5; margin:0; }
   .focus-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; }
-  .focus { border:1px solid var(--warn); border-radius:8px; padding:14px; background:var(--panel); }
+  .focus { border:1px solid var(--warn); border-radius:2px; padding:14px; background:var(--panel); }
   .focus .rank { color:var(--warn); font-size:12px; font-weight:600; }
   .focus h3 { margin:4px 0 6px; font-size:17px; }
   .focus .big { font-size:26px; font-weight:600; }
   .focus .big small { font-size:12px; font-weight:400; color:var(--dim); }
   .focus p { margin:8px 0 0; line-height:1.45; }
   td.num, th.num { text-align:right; }
-  .banner { border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:8px 12px; font-size:13px; }
+  .banner { border:1px solid var(--warn); color:var(--warn); border-radius:2px; padding:8px 12px; font-size:13px; }
   .small { font-size:12px; color:var(--dim); display:block; margin-bottom:8px; }
   .help { color:var(--dim); font-size:13px; line-height:1.55; }
   .help summary { cursor:pointer; color:var(--text); }
@@ -157,10 +157,11 @@ function render(d) {
     type: "bar", x: turns.map(t => "T" + t.number), y: turns.map(t => t.avg_loss),
     text: turns.map(t => t.avg_loss.toFixed(2)), textposition: "outside", hovertext: turns.map(t => t.name),
     hovertemplate: "%{hovertext}<br>%{y:.3f} s<extra></extra>",
-    marker: { color: turns.map(t => t.focus ? "#ffb84d" : "#4da3ff") },
-  }], { margin: { l: 50, r: 10, t: 10, b: 30 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-        font: { color: getComputedStyle(document.body).color }, hoverlabel: hoverStyle(),
-        yaxis: { title: "seconds", gridcolor: "rgba(128,128,128,.2)", range: [0, Math.max(0.05, ...turns.map(t => t.avg_loss)) * 1.25] } },
+    marker: { color: turns.map(t => t.focus ? "rgba(255,176,32,.55)" : "rgba(0,229,255,.38)"), line: { color: turns.map(t => t.focus ? "#ffb020" : "#00e5ff"), width: 1.5 } },
+    textfont: { family: CHART_FONT, size: 12, color: "#d3f4ff" }, cliponaxis: false,
+  }], { margin: { l: 56, r: 10, t: 24, b: 34 }, ...chartBase(), bargap: 0.35,
+        xaxis: chartAxis({ showgrid: false }),
+        yaxis: chartAxis({ title: "seconds", range: [0, Math.max(0.05, ...turns.map(t => t.avg_loss)) * 1.25] }) },
         { responsive: true, displaylogo: false });
 }
 

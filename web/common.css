@@ -1,7 +1,4 @@
-:root { --bg:#12141a; --panel:#1b1e27; --line:#2b2f3b; --text:#e6e8ee; --dim:#8a90a2; --a:#4da3ff; --b:#ff6b6b; --good:#4cd38a; --warn:#ffb84d; }
-@media (prefers-color-scheme: light) {
-  :root { --bg:#f4f5f8; --panel:#fff; --line:#dcdfe6; --text:#1c1f27; --dim:#6b7186; --warn:#b36b00; }
-}
+:root { --bg:#03070d; --panel:#07121e; --line:#12384f; --text:#d3f4ff; --dim:#6a93a8; --a:#00e5ff; --b:#ff5a36; --good:#2dffb0; --warn:#ffb020; --blue:#2f7bff; --glow:rgba(0,229,255,.35); }
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--text); font:14px system-ui, sans-serif; }
 header { padding:12px 16px; border-bottom:1px solid var(--line); }
@@ -57,3 +54,77 @@ dialog#manage h3 { margin:0 0 6px; font-size:16px; }
 .dd-list li { height:34px; line-height:34px; padding:0 10px; border-radius:6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .dd-list li:hover, .dd-list li.hot { background:var(--bg); }
 .dd-list li.sel { color:var(--a); font-weight:600; }
+
+
+/* ===== TRON / robotic look: dark panels, cyan light lines, angular shapes ===== */
+:root { color-scheme: dark; }
+body { font:14px "Bahnschrift", "Segoe UI", system-ui, sans-serif; letter-spacing:.01em;
+  background:radial-gradient(1100px 480px at 50% -8%, rgba(0,110,190,.20), transparent 62%),
+             linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px) 0 0/44px 44px,
+             linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px) 0 0/44px 44px, var(--bg);
+  background-attachment:fixed; }
+* { scrollbar-width:thin; scrollbar-color:#1c6c8a #04101a; }
+::selection { background:rgba(0,229,255,.3); }
+header { background:linear-gradient(180deg, rgba(0,229,255,.08), transparent); border-bottom:1px solid var(--line);
+  box-shadow:0 1px 0 rgba(0,229,255,.28), 0 8px 22px -10px var(--glow); }
+.bar h1 { font-size:17px; font-weight:700; letter-spacing:.3em; text-transform:uppercase; color:var(--a); text-shadow:0 0 14px var(--glow); }
+.bar h1::before { content:""; display:inline-block; width:13px; height:13px; margin-right:11px; vertical-align:-1px; background:var(--a);
+  clip-path:polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); filter:drop-shadow(0 0 5px var(--a)); }
+nav { display:flex; gap:4px; }
+nav a { text-transform:uppercase; letter-spacing:.14em; font-size:12px; font-weight:600; padding:7px 16px; border:1px solid transparent; border-radius:0;
+  clip-path:polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px)); }
+nav a:hover { color:var(--text); background:rgba(0,229,255,.07); }
+nav a.active { color:var(--a); background:linear-gradient(180deg, rgba(0,229,255,.22), rgba(0,229,255,.06)); border-color:var(--a); text-shadow:0 0 10px var(--glow); }
+#carline .car { text-transform:uppercase; letter-spacing:.08em; text-shadow:0 0 16px rgba(0,229,255,.35); }
+#carline .track { color:var(--dim); letter-spacing:.05em; }
+.badge, .pill { border-radius:2px; letter-spacing:.04em; }
+
+.card, body .tile, body .focus, body .find, body .banner, .notice { position:relative; border-radius:2px; --bracket:var(--a);
+  background:linear-gradient(160deg, rgba(10,30,48,.94), rgba(4,12,22,.94));
+  box-shadow:inset 0 0 30px rgba(0,229,255,.045), 0 0 16px rgba(0,229,255,.06); }
+.card::before, body .tile::before, body .focus::before, body .find::before { content:""; position:absolute; top:-1px; left:-1px; width:13px; height:13px;
+  border-top:2px solid var(--bracket); border-left:2px solid var(--bracket); pointer-events:none; filter:drop-shadow(0 0 4px var(--bracket)); }
+.card::after, body .tile::after, body .focus::after, body .find::after { content:""; position:absolute; bottom:-1px; right:-1px; width:13px; height:13px;
+  border-bottom:2px solid var(--bracket); border-right:2px solid var(--bracket); pointer-events:none; filter:drop-shadow(0 0 4px var(--bracket)); }
+body .focus, body .find.try { --bracket:var(--warn); }
+body .banner, .notice { --bracket:var(--warn); }
+h2 { font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--a); text-shadow:0 0 10px rgba(0,229,255,.25); }
+h2::before { content:""; display:inline-block; width:7px; height:7px; margin-right:9px; vertical-align:1px; background:var(--a);
+  clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%); filter:drop-shadow(0 0 4px var(--a)); }
+.small, .intro, .caption, .help { letter-spacing:.015em; }
+
+table { border-collapse:separate; border-spacing:0; }
+th { text-transform:uppercase; letter-spacing:.1em; font-size:11px; color:var(--dim); border-bottom:1px solid var(--line); }
+td { border-bottom:1px solid rgba(18,56,79,.6); }
+tr:hover td { background:rgba(0,229,255,.045); }
+.num { font-variant-numeric:tabular-nums; }
+
+.btn, select, .dd-btn { border-radius:0; border:1px solid #1b5873; color:var(--text);
+  background:linear-gradient(180deg, rgba(0,229,255,.11), rgba(0,229,255,.03)); letter-spacing:.06em; }
+.btn { text-transform:uppercase; font-size:12px; font-weight:600; padding:7px 13px;
+  clip-path:polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px)); }
+.btn.small-btn { padding:5px 11px; }
+.btn:hover:not(:disabled), .dd-btn:hover, select:hover { border-color:var(--a); background:linear-gradient(180deg, rgba(0,229,255,.24), rgba(0,229,255,.07)); color:#fff; }
+.btn.primary { border-color:var(--a); color:var(--a); background:linear-gradient(180deg, rgba(0,229,255,.26), rgba(0,229,255,.08)); }
+.btn.danger:not(:disabled) { border-color:var(--b); color:var(--b); background:linear-gradient(180deg, rgba(255,90,54,.16), rgba(255,90,54,.04)); }
+select, .dd-btn { box-shadow:inset 0 0 12px rgba(0,229,255,.05); }
+.dd-btn .caret { color:var(--a); }
+.dd-list { border-radius:0; border-color:var(--a); background:#06111c; box-shadow:0 0 24px rgba(0,229,255,.22), 0 10px 26px rgba(0,0,0,.55); }
+.dd-list li { border-radius:0; }
+.dd-list li:hover, .dd-list li.hot { background:rgba(0,229,255,.12); }
+.dd-list li.sel { color:var(--a); text-shadow:0 0 8px var(--glow); }
+input[type=checkbox], input[type=radio], input[type=range] { accent-color:var(--a); }
+.rename { border-bottom:1px dotted var(--a); }
+
+dialog#manage, dialog#tv { border-radius:2px; border-color:var(--a); background:#050e18;
+  box-shadow:0 0 0 1px rgba(0,229,255,.12), 0 0 46px rgba(0,229,255,.18); }
+dialog#manage::backdrop, dialog#tv::backdrop { background:rgba(1,5,10,.78); }
+#manage .mlist, #appFooter { border-color:var(--line); }
+#appFooter { letter-spacing:.03em; }
+#updating { background:rgba(1,5,10,.82); color:var(--text); text-shadow:0 0 14px var(--glow); }
+
+/* chart toolbar (the little icons that appear over a chart) */
+.modebar { background:transparent !important; }
+.modebar-btn path { fill:#2a8aa3 !important; }
+.modebar-btn:hover path, .modebar-btn.active path { fill:var(--a) !important; }
+.js-plotly-plot .hoverlayer .hovertext path { stroke-width:1px; }
