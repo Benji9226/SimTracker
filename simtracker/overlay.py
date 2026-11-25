@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ctypes
 import sys
+import threading
 import time
 from collections import deque
 
@@ -31,6 +32,10 @@ PAD, TOP = 12, 38
 BG, GRID = (4, 12, 20), (14, 52, 72)
 CYAN, ORANGE, TEXT, DIM = (0, 229, 255), (255, 90, 54), (211, 244, 255), (106, 147, 168)
 STALE_S = 1.0                    # no new game time for this long: the game is paused, in a menu, or closed
+DOT_RATE = (2.0, 12.0)           # dots per second on the line while ABS / TC is working: the lightest and the hardest hit
+TC_CUT_FULL = 0.6                # TC taking this much of the throttle away counts as a hard hit
+ABS_PULSES_FULL = 12.0           # ABS switching on this many times a second counts as a hard hit
+DOT_COLOR = {"abs": (255, 255, 255), "tc": (255, 236, 0)}      # white dots on the orange brake line, yellow dots on the cyan throttle line: both stand out from their line
 
 _KERNEL = np.array([1, 4, 6, 4, 1], dtype=float) / 16.0
 
@@ -72,6 +77,12 @@ class Overlay:
         self.deadline = time.time() + seconds if seconds else None
         self.parent = int(sys.argv[sys.argv.index("--parent") + 1]) if "--parent" in sys.argv else None
         self.samples: deque = deque()               # (game time, throttle, brake)
+        self.dots = {"abs": deque(), "tc": deque()}  # game times at which a dot sits on the brake / throttle line
+        self.dot_state = {"abs": {"phase": 1.0, "level": 0.0}, "tc": {"phase": 1.0, "level": 0.0}}
+        self.abs_edges: deque = deque()              # when ABS switched on, to tell how fast it pulses
+        self.prev: dict | None = None
+        self.lock = threading.Lock()
+        self.running = True
         self.last_t, self.last_new = None, 0.0
         self.latest: dict | None = None
         self.connected = False
@@ -99,6 +110,7 @@ class Overlay:
         self.canvas.bind("<Button-3>", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
         root.update_idletasks()
         self._no_focus()
+        threading.Thread(target=self._sample_loop, daemon=True).start()      # reads the game about 200 times a second, so no ABS pulse is missed
         self._tick()
         self._keep_on_top()
 
@@ -132,41 +144,88 @@ class Overlay:
         settings.save({"overlay": {"x": self.root.winfo_x(), "y": self.root.winfo_y()}})
 
     def close(self) -> None:
+        self.running = False
+        time.sleep(0.03)
         if self.live:
             self.live.close()
         self.root.destroy()
 
     # -- data --
+    def _sample_loop(self) -> None:
+        while self.running:
+            try:
+                d = self.read()
+                now = time.time()
+                with self.lock:
+                    self.connected = d is not None
+                    if d and d["t"] != self.last_t:
+                        self._ingest(d, now)
+                    self.latest = d if d and now - self.last_new < STALE_S else None
+            except Exception:
+                pass
+            time.sleep(0.004)
+
+    def _ingest(self, d: dict, now: float) -> None:
+        """Keep a new reading, and decide where ABS and TC dots go: faster the harder it hits. Called with the lock held."""
+        t = d["t"]
+        if self.samples and t < self.samples[-1][0]:                # the game time went backwards: a new session started
+            for q in (self.samples, self.dots["abs"], self.dots["tc"], self.abs_edges):
+                q.clear()
+            self.prev = None
+        dt = min(max(t - self.prev["t"], 0.0), 0.1) if self.prev else 0.0
+        self.last_t, self.last_new = t, now
+        self.samples.append((t, d["throttle"], d["brake"]))
+        if d.get("abs_active") and not (self.prev or {}).get("abs_active"):
+            self.abs_edges.append(t)
+        while self.abs_edges and self.abs_edges[0] < t - 0.25:
+            self.abs_edges.popleft()
+        # how hard: TC by the share of the throttle it takes away, ABS by how fast it pulses on and off
+        tc_level = 0.0
+        if d.get("tc_active") and d.get("throttle_after_tc") is not None:
+            tc_level = min(max(d["throttle"] - d["throttle_after_tc"], 0.0) / TC_CUT_FULL, 1.0)
+        abs_level = max(0.25, min(len(self.abs_edges) / 0.25 / ABS_PULSES_FULL, 1.0)) if d.get("abs_active") else 0.0
+        for key, active, level in (("tc", d.get("tc_active"), tc_level), ("abs", d.get("abs_active"), abs_level)):
+            st = self.dot_state[key]
+            if not active:
+                st["phase"], st["level"] = 1.0, 0.0                 # the next hit puts a dot at once
+                continue
+            st["level"] = level if not st["level"] else st["level"] + (level - st["level"]) * min(dt / 0.08, 1.0)
+            st["phase"] += (DOT_RATE[0] + (DOT_RATE[1] - DOT_RATE[0]) * st["level"]) * dt
+            if st["phase"] >= 1.0:
+                st["phase"] -= 1.0
+                self.dots[key].append(t)
+        self.prev = d
+        horizon = t - HISTORY_S - 2
+        while self.samples and self.samples[0][0] < horizon:
+            self.samples.popleft()
+        for q in self.dots.values():
+            while q and q[0] < horizon:
+                q.popleft()
+
     def _tick(self) -> None:
         now = time.time()
         if self.deadline and now > self.deadline:
             return self.close()
-        d = self.read()
-        self.connected = d is not None
-        if d and d["t"] != self.last_t:
-            if self.samples and d["t"] < self.samples[-1][0]:
-                self.samples.clear()                # the game time went backwards: a new session started
-            self.last_t, self.last_new = d["t"], now
-            self.samples.append((d["t"], d["throttle"], d["brake"]))
-            while self.samples and self.samples[0][0] < d["t"] - HISTORY_S - 2:
-                self.samples.popleft()
-        self.latest = d if d and now - self.last_new < STALE_S else None
         self._draw(now)
         self.root.after(14, self._tick)
 
     def _curves(self, now: float):
-        """Throttle and brake on an even time grid, ending DELAY_S behind the newest reading, lightly smoothed. Returns (times, throttle, brake)."""
-        s = np.array(self.samples, dtype=float)
+        """Throttle and brake on an even time grid, ending DELAY_S behind the newest reading, lightly smoothed. Returns (times, throttle, brake, head).
+
+        The grid points sit at fixed moments of game time (multiples of STEP_S), and the smoothing only ever uses real neighbours, so a point of the
+        line keeps its height while it scrolls by. (A grid that moved along with the clock made the line, and the dots on it, shimmer.)"""
+        with self.lock:
+            s = np.array(self.samples, dtype=float)
+            last_t, last_new = self.last_t, self.last_new
         newest = s[-1, 0]
-        head = min(self.last_t + (now - self.last_new), newest + 0.05) - DELAY_S          # the game clock, estimated between readings
-        times = head - HISTORY_S + np.arange(int(HISTORY_S / STEP_S) + 1) * STEP_S
-        pad = 2 * STEP_S
-        grid = np.r_[times[0] - pad, times, times[-1] + pad]
+        head = min(last_t + (now - last_new), newest + 0.05) - DELAY_S          # the game clock, estimated between readings
+        k0, k1 = int(np.ceil((head - HISTORY_S) / STEP_S)), int(np.floor(head / STEP_S)) + 1
+        grid = np.arange(k0 - 2, k1 + 3) * STEP_S                  # two extra points each side, only there to give the smoothing real neighbours
         out = []
         for col in (1, 2):
             y = np.interp(grid, s[:, 0], s[:, col])
-            out.append(np.clip(np.convolve(np.pad(y, 2, mode="edge"), _KERNEL, "valid")[1:-1], 0.0, 1.0))
-        return times, out[0], out[1]
+            out.append(np.clip(np.convolve(y, _KERNEL, "same")[2:-2], 0.0, 1.0))
+        return grid[2:-2], out[0], out[1], head
 
     # -- drawing --
     def _draw(self, now: float) -> None:
@@ -174,21 +233,24 @@ class Overlay:
         d = ImageDraw.Draw(img)
         gx0, gx1, gy0, gy1 = PAD * S, (W - PAD) * S, TOP * S, (H - 10) * S
         span = gx1 - gx0
-        live = self.latest is not None and len(self.samples) > 3
+        with self.lock:
+            latest, connected, n_samples = self.latest, self.connected, len(self.samples)
+            dots = {k: np.array(v, dtype=float) for k, v in self.dots.items()}
+        live = latest is not None and n_samples > 3
         times, glow = None, None
         if live:
-            times, thr, brk = self._curves(now)
+            times, thr, brk, head = self._curves(now)
         for frac in (0.0, 0.5, 1.0):
             y = gy1 - frac * (gy1 - gy0)
             d.line([(gx0, y), (gx1, y)], fill=GRID + (255,), width=1 if frac == 0.5 else S)
         if live:                                                    # vertical marks every two seconds, scrolling with the graph
-            first = np.ceil(times[0] / 2.0) * 2.0
-            for tt in np.arange(first, times[-1], 2.0):
-                x = gx0 + (tt - times[0]) / HISTORY_S * span
+            first = np.ceil((head - HISTORY_S) / 2.0) * 2.0
+            for tt in np.arange(first, head, 2.0):
+                x = gx1 - (head - tt) / HISTORY_S * span
                 d.line([(x, gy0), (x, gy1)], fill=(10, 36, 52, 255), width=1)
 
         if live:
-            xs = gx0 + (times - times[0]) / HISTORY_S * span
+            xs = gx1 - (head - times) / HISTORY_S * span
             pts = {}
             for key, v in (("thr", thr), ("brk", brk)):
                 pts[key] = list(zip(xs.tolist(), (gy1 - v * (gy1 - gy0)).tolist()))
@@ -205,12 +267,21 @@ class Overlay:
             glow = glow.filter(ImageFilter.GaussianBlur(3)).point(lambda v: int(v * 0.85))
             d.line(pts["thr"], fill=CYAN, width=2 * S, joint="curve")
             d.line(pts["brk"], fill=(255, 112, 80), width=2 * S, joint="curve")
+            for key, line_pts in (("abs", brk), ("tc", thr)):       # dots on the line where ABS / TC is working: closer together the harder it hits
+                tt = dots[key]
+                tt = tt[(tt >= times[0]) & (tt <= times[-1])]
+                if len(tt):
+                    dx = gx1 - (head - tt) / HISTORY_S * span
+                    dy = gy1 - np.interp(tt, times, line_pts) * (gy1 - gy0)
+                    r = 2.3 * S
+                    for x, y in zip(dx.tolist(), dy.tolist()):
+                        d.ellipse([x - r, y - r, x + r, y + r], fill=DOT_COLOR[key], outline=BG, width=1)
             x, y = pts["thr"][-1]                                    # a bright dot where the line is being drawn
             d.ellipse([x - 3 * S, y - 3 * S, x + 3 * S, y + 3 * S], fill=(220, 252, 255))
             x, y = pts["brk"][-1]
             d.ellipse([x - 3 * S, y - 3 * S, x + 3 * S, y + 3 * S], fill=(255, 190, 170))
         else:
-            msg = "WAITING FOR LE MANS ULTIMATE" if not self.connected else "NOT DRIVING"
+            msg = "WAITING FOR LE MANS ULTIMATE" if not connected else "NOT DRIVING"
             d.text((W * S / 2, (gy0 + gy1) / 2), msg, fill=DIM, font=self.f_mid, anchor="mm")
 
         # header: pedal names, speed and gear
@@ -218,8 +289,8 @@ class Overlay:
         d.text((PAD * S + 12 * S, 15.5 * S), "THROTTLE", fill=TEXT, font=self.f_small, anchor="lm")
         d.rectangle([(PAD + 84) * S, 12 * S, (PAD + 91) * S, 19 * S], fill=ORANGE)
         d.text(((PAD + 96) * S, 15.5 * S), "BRAKE", fill=TEXT, font=self.f_small, anchor="lm")
-        if self.latest:
-            speed, gear = self.latest["speed"], self.latest["gear"]
+        if latest:
+            speed, gear = latest["speed"], latest["gear"]
             d.text(((W - PAD - 38) * S, 22 * S), f"{speed:.0f}", fill=(235, 252, 255), font=self.f_big, anchor="rm")
             d.text(((W - PAD - 34) * S, 26 * S), "KM/H", fill=CYAN, font=self.f_small, anchor="lm")
             g = "R" if gear < 0 else "N" if gear == 0 else str(gear)

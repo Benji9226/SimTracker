@@ -37,7 +37,7 @@ from simtracker.version import VERSION
 from simtracker.paths import DATA_DIR, FROZEN, MAPS_DIR, WEB_DIR
 from simtracker.storage import profiles, saved_laps, surface
 from simtracker.storage.profiles import track_key
-from simtracker import rivals
+from simtracker import rivals, whatsnew
 from simtracker.setup import model as setup_model
 from simtracker.telemetry import cleanup
 from simtracker.telemetry.finder import TelemetryNotFound, ask_for_folder, find_telemetry_dir
@@ -741,6 +741,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = rivals.status()
             elif u.path == "/api/overlay":
                 data = api_overlay()
+            elif u.path == "/api/whatsnew":
+                data = whatsnew.status(q.get("all") == "1")
             elif u.path == "/api/setup":
                 data = api_setup(q["file"], q.get("a"), q.get("b"))
             else:
@@ -775,6 +777,9 @@ class Handler(BaseHTTPRequestHandler):
                 data = api_delete_sessions(list(body.get("names") or []))
             elif path == "/api/overlay":
                 data = api_overlay(str(body.get("action", "")))
+            elif path == "/api/whatsnew/seen":
+                whatsnew.mark_seen()
+                data = {"ok": True}
             elif path == "/api/turns/rename":
                 data = api_rename_turn(body["file"], int(body["number"]), str(body.get("name", "")))
             else:

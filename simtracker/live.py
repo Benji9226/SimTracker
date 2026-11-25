@@ -9,7 +9,9 @@ Where things are (the game's structures are packed to 4 bytes, so the sizes simp
     general data 332 bytes + paths 1,300 + scoring 126,832  ->  the telemetry part starts at byte 128,464:
         1 byte: number of cars, 1 byte: which slot is the player's car, 1 byte: the player has a car, 1 byte padding, then 104 slots of 1,888 bytes.
     inside a slot: elapsed time (double) at 12, velocity (3 doubles, m/s) at 184, gear (int) at 352,
-        raw throttle (double, 0..1) at 388, raw brake at 396, raw steering (-1..1) at 404.
+        raw throttle (double, 0..1) at 388, raw brake at 396, raw steering (-1..1) at 404,
+        throttle and brake after the car's driver aids (the same as the raw ones, minus what TC or ABS took away) at 420 and 428,
+        "ABS is working" (1 byte) at 746, "TC is working" (1 byte) at 747, the highest TC level of this car at 751, the highest ABS level at 757.
 """
 from __future__ import annotations
 
@@ -21,7 +23,7 @@ import sys
 _NAME = "LMU_Data"
 _TELEMETRY = 332 + 1300 + 126832          # where the telemetry part begins
 _SLOT, _SLOTS, _TOTAL = 1888, 104, 324820
-_READ = 440                               # bytes read from the player's slot: everything up to the raw steering value
+_READ = 760                               # bytes read from the player's slot: everything up to the driver-aid levels
 
 
 class Live:
@@ -63,7 +65,7 @@ class Live:
             self._handle = None
 
     def read(self) -> dict | None:
-        """{"t": game time (s), "speed": km/h, "throttle": 0..1, "brake": 0..1, "gear": int} or None."""
+        """{"t": game time (s), "speed": km/h, "throttle": 0..1, "brake": 0..1, "gear": int, plus whether TC / ABS are working (None when unknown)} or None."""
         if not self._open():
             return None
         try:
@@ -80,5 +82,9 @@ class Live:
         throttle, brake = struct.unpack_from("<2d", raw, 388)
         if not all(math.isfinite(x) for x in (t, vx, vy, vz, throttle, brake)):
             return None
+        thr_f, brk_f = struct.unpack_from("<2d", raw, 420)
+        aids_ok = raw[751] <= 30 and raw[757] <= 30 and raw[750] <= raw[751] and raw[756] <= raw[757] and raw[746] <= 1 and raw[747] <= 1 and math.isfinite(thr_f) and math.isfinite(brk_f)   # a quick check that these bytes are where they should be
         return {"t": t, "speed": math.sqrt(vx * vx + vy * vy + vz * vz) * 3.6, "gear": gear,
-                "throttle": min(max(throttle, 0.0), 1.0), "brake": min(max(brake, 0.0), 1.0)}
+                "throttle": min(max(throttle, 0.0), 1.0), "brake": min(max(brake, 0.0), 1.0),
+                "throttle_after_tc": min(max(thr_f, 0.0), 1.0) if aids_ok else None, "brake_after_abs": min(max(brk_f, 0.0), 1.0) if aids_ok else None,
+                "abs_active": bool(raw[746]) if aids_ok else None, "tc_active": bool(raw[747]) if aids_ok else None}

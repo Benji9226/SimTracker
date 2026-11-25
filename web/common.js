@@ -90,6 +90,8 @@ const App = {
       $("appFooter").textContent = `SimTracker ${s.version}. ` + (s.cleanup_days > 0
         ? `Old telemetry is cleaned up automatically: session files not written to for ${s.cleanup_days} days are deleted (your saved laps are kept).`
         : "Automatic telemetry clean-up is off.") + ` Telemetry folder: ${s.folder_files} files, ${s.folder_mb} MB.` + last;
+      $("appFooter").insertAdjacentHTML("beforeend", ' <a href="#" id="wnLink">What\'s new</a>');
+      $("wnLink").onclick = e => { e.preventDefault(); WhatsNew.openAll(); };
     }).catch(() => {});
     $("sessions").onchange = e => App.choose(e.target.value, onSession);
     Dd.init();
@@ -98,6 +100,7 @@ const App = {
     api("/api/overlay").then(overlayShow).catch(() => {});
     $("overlayBtn").onclick = () => apiPost("/api/overlay", { action: $("overlayBtn").dataset.on ? "stop" : "start" }).then(overlayShow).catch(() => {});
     Updates.start();
+    WhatsNew.start();
     const poll = async () => {
       const list = await api("/api/sessions");
       App.sessions = list;
@@ -300,6 +303,29 @@ const Manage = {
 
 // "Update application": shown in the top right corner when a newer version is published. Pressing it closes the program,
 // downloads the new version and starts it again; this page waits for it and reloads itself.
+// "What's new": a window with the notes of the version you just got, shown once (and from the link at the bottom of every page).
+const WhatsNew = {
+  async start() {
+    try { const d = await api("/api/whatsnew"); if (d.show) WhatsNew.open(d, true); } catch (e) {}
+  },
+  async openAll() {
+    try { WhatsNew.open(await api("/api/whatsnew?all=1"), false); } catch (e) {}
+  },
+  open(d, first) {
+    if ($("whatsnew")) return;
+    const sections = d.notes.map(n => `<section><h4><span class="wn-ver">v${esc(n.version)}</span> ${esc(n.title)}</h4>` +
+      n.items.map(i => `<div class="wn-item"><b>${esc(i.title)}</b><p>${esc(i.text)}</p></div>`).join("") + "</section>").join("");
+    document.body.insertAdjacentHTML("beforeend", `<dialog id="whatsnew"><div class="wn-head"><div class="wn-tag">${first ? "UPDATED" : "RELEASE NOTES"}</div>
+      <h3>What's new in SimTracker <span>v${esc(d.version)}</span></h3></div><div class="wn-body">${sections}</div>
+      <div class="wn-foot"><button class="btn primary" id="wnClose">Got it</button></div></dialog>`);
+    const dlg = $("whatsnew");
+    const done = () => { if (first) apiPost("/api/whatsnew/seen", {}).catch(() => {}); dlg.remove(); };
+    $("wnClose").onclick = () => dlg.close();
+    dlg.addEventListener("close", done);
+    dlg.showModal();
+  },
+};
+
 const Updates = {
   info: null,
   async start() {
@@ -310,7 +336,7 @@ const Updates = {
   show() {
     const b = $("updateBtn"), i = Updates.info;
     if (!b || !i || !i.available || !i.can_install) { if (b) b.hidden = true; return; }
-    b.textContent = "Update application";
+    b.textContent = `Update to ${i.latest}`;
     b.title = `A new version (${i.latest}) is available. You have ${i.current}.` + (i.notes ? "\n\n" + i.notes : "");
     b.hidden = false;
     b.onclick = Updates.install;
@@ -321,7 +347,7 @@ const Updates = {
     const b = $("updateBtn");
     b.disabled = true; b.textContent = "Downloading…";
     try { await apiPost("/api/update/install", {}); }
-    catch (e) { b.disabled = false; b.textContent = "Update application"; alert(e.message); return; }
+    catch (e) { b.disabled = false; b.textContent = `Update to ${i.latest}`; alert(e.message); return; }
     b.textContent = "Restarting…";
     document.body.insertAdjacentHTML("beforeend", '<div id="updating"><div>Updating SimTracker…<br><span>Please wait. This page reloads by itself when the new version is ready.</span></div></div>');
     const started = Date.now();

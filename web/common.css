@@ -128,3 +128,32 @@ dialog#manage::backdrop, dialog#tv::backdrop { background:rgba(1,5,10,.78); }
 .modebar-btn path { fill:#2a8aa3 !important; }
 .modebar-btn:hover path, .modebar-btn.active path { fill:var(--a) !important; }
 .js-plotly-plot .hoverlayer .hovertext path { stroke-width:1px; }
+
+/* ===== the update button: it should be hard to miss ===== */
+#updateBtn:not([hidden]) { clip-path:none; font-size:13px; font-weight:800; letter-spacing:.14em; padding:9px 18px; color:#031219; text-shadow:none;
+  background:linear-gradient(180deg, #5af3ff, #00c3dd); border:1px solid #bff9ff; border-radius:0; animation:updatePulse 1.7s ease-in-out infinite; }
+#updateBtn:not([hidden])::before { content:"\25B2"; margin-right:9px; font-size:11px; }
+#updateBtn:hover:not(:disabled) { background:linear-gradient(180deg, #8ff7ff, #19d6ee); color:#031219; }
+#updateBtn:disabled { animation:none; opacity:.7; }
+@keyframes updatePulse { 0%, 100% { box-shadow:0 0 6px rgba(0,229,255,.55), 0 0 0 0 rgba(0,229,255,.45); }
+  50% { box-shadow:0 0 22px rgba(0,229,255,.95), 0 0 0 5px rgba(0,229,255,0); } }
+
+/* ===== the "What's new" window ===== */
+dialog#whatsnew { background:#050e18; color:var(--text); border:1px solid var(--a); border-radius:2px; padding:0; width:min(640px, 94vw); max-height:86vh;
+  box-shadow:0 0 0 1px rgba(0,229,255,.12), 0 0 56px rgba(0,229,255,.22); overflow:hidden; }
+dialog#whatsnew[open] { display:flex; flex-direction:column; }
+dialog#whatsnew::backdrop { background:rgba(1,5,10,.8); }
+#whatsnew .wn-head { padding:18px 22px 12px; border-bottom:1px solid var(--line); background:linear-gradient(180deg, rgba(0,229,255,.12), transparent); }
+#whatsnew .wn-tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.2em; color:#031219; background:var(--a); padding:2px 10px; margin-bottom:8px;
+  clip-path:polygon(0 0, 100% 0, calc(100% - 7px) 100%, 0 100%); }
+#whatsnew h3 { margin:0; font-size:20px; letter-spacing:.06em; text-transform:uppercase; text-shadow:0 0 14px var(--glow); }
+#whatsnew h3 span { color:var(--a); }
+#whatsnew .wn-body { padding:14px 22px; overflow-y:auto; line-height:1.5; }
+#whatsnew section + section { margin-top:18px; padding-top:14px; border-top:1px solid var(--line); }
+#whatsnew h4 { margin:0 0 8px; font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+#whatsnew .wn-ver { color:var(--a); font-weight:700; margin-right:6px; }
+#whatsnew .wn-item { margin:12px 0; padding-left:14px; border-left:2px solid var(--a); }
+#whatsnew .wn-item b { display:block; letter-spacing:.04em; }
+#whatsnew .wn-item p { margin:3px 0 0; color:#b6d9e6; }
+#whatsnew .wn-foot { padding:12px 22px 16px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; }
+#appFooter a { color:var(--a); text-decoration:none; border-bottom:1px dotted var(--a); }
